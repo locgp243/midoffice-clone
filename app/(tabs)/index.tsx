@@ -1,23 +1,44 @@
 import { StyleSheet, Text, View } from "react-native";
 
-/**
- * HOME / DASHBOARD
- *
- * Đây là màn hình Tổng quan.
- *
- * TODO sau này:
- * - Header màu xanh
- * - Logo
- * - Dark/Light button
- * - Chọn tháng
- * - Chấm công
- * - KPI
- * - Thống kê công việc
- */
+import { Spacing } from "@/constants/Spacing";
+import { FontSize, FontWeight } from "@/constants/Typography";
+import { useAppTheme } from "@/hooks/useAppTheme";
+
 export default function HomeScreen() {
+  const { colors } = useAppTheme();
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Tổng quan</Text>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.background,
+        },
+      ]}
+    >
+      <View style={styles.content}>
+        <Text
+          style={[
+            styles.title,
+            {
+              color: colors.text,
+            },
+          ]}
+        >
+          Tổng quan
+        </Text>
+
+        <Text
+          style={[
+            styles.description,
+            {
+              color: colors.textSecondary,
+            },
+          ]}
+        >
+          MID Office
+        </Text>
+      </View>
     </View>
   );
 }
@@ -25,14 +46,20 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#F5F5F9",
+  },
+
+  content: {
+    flex: 1,
+    padding: Spacing.lg,
   },
 
   title: {
-    fontSize: 26,
-    fontWeight: "700",
-    color: "#222222",
+    fontSize: FontSize.xxl,
+    fontWeight: FontWeight.bold,
+  },
+
+  description: {
+    marginTop: Spacing.sm,
+    fontSize: FontSize.md,
   },
 });
