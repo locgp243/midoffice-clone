@@ -1,12 +1,26 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Tabs } from "expo-router";
+import { Redirect, Tabs } from "expo-router";
 import { View } from "react-native";
 
 import AppHeader from "@/components/common/AppHeader";
 import { useAppTheme } from "@/hooks/useAppTheme";
+import { useAuthStore } from "@/store/useAuthStore";
 
 export default function TabsLayout() {
   const { colors } = useAppTheme();
+
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
+  const isInitialized = useAuthStore((state) => state.isInitialized);
+
+  // Sau hooks mới được return
+  if (!isInitialized) {
+    return null;
+  }
+
+  if (!isAuthenticated) {
+    return <Redirect href="/login" />;
+  }
 
   return (
     <View
