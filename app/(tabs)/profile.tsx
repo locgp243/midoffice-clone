@@ -1,23 +1,19 @@
 import { StyleSheet, Text, View } from "react-native";
 
 /**
- * HOME / DASHBOARD
- *
- * Đây là màn hình Tổng quan.
+ * PROFILE SCREEN
  *
  * TODO sau này:
- * - Header màu xanh
- * - Logo
- * - Dark/Light button
- * - Chọn tháng
- * - Chấm công
- * - KPI
- * - Thống kê công việc
+ * - Avatar
+ * - User information
+ * - Settings
+ * - Change password
+ * - Logout
  */
-export default function HomeScreen() {
+export default function ProfileScreen() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Tổng quan</Text>
+      <Text style={styles.title}>Tôi</Text>
     </View>
   );
 }
@@ -33,6 +29,5 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontWeight: "700",
-    color: "#222222",
   },
 });

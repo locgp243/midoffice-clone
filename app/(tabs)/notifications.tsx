@@ -1,23 +1,18 @@
 import { StyleSheet, Text, View } from "react-native";
 
 /**
- * HOME / DASHBOARD
- *
- * Đây là màn hình Tổng quan.
+ * NOTIFICATION SCREEN
  *
  * TODO sau này:
- * - Header màu xanh
- * - Logo
- * - Dark/Light button
- * - Chọn tháng
- * - Chấm công
- * - KPI
- * - Thống kê công việc
+ * - Danh sách notification
+ * - Unread count
+ * - Mark as read
+ * - Push notification
  */
-export default function HomeScreen() {
+export default function NotificationsScreen() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Tổng quan</Text>
+      <Text style={styles.title}>Thông báo</Text>
     </View>
   );
 }
@@ -33,6 +28,5 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontWeight: "700",
-    color: "#222222",
   },
 });

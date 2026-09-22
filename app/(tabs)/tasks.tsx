@@ -1,23 +1,19 @@
 import { StyleSheet, Text, View } from "react-native";
 
 /**
- * HOME / DASHBOARD
- *
- * Đây là màn hình Tổng quan.
+ * TASK SCREEN
  *
  * TODO sau này:
- * - Header màu xanh
- * - Logo
- * - Dark/Light button
- * - Chọn tháng
- * - Chấm công
- * - KPI
- * - Thống kê công việc
+ * - Danh sách nhiệm vụ
+ * - Search
+ * - Filter
+ * - Status
+ * - Task detail
  */
-export default function HomeScreen() {
+export default function TasksScreen() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Tổng quan</Text>
+      <Text style={styles.title}>Nhiệm vụ</Text>
     </View>
   );
 }
@@ -33,6 +29,5 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontWeight: "700",
-    color: "#222222",
   },
 });

@@ -1,66 +1,133 @@
-import { SymbolView } from 'expo-symbols';
-import { Link, Tabs } from 'expo-router';
-import { Platform, Pressable } from 'react-native';
+import { Ionicons } from "@expo/vector-icons";
+import { Tabs } from "expo-router";
 
-import Colors from '@/constants/Colors';
-import { useColorScheme } from '@/components/useColorScheme';
-import { useClientOnlyValue } from '@/components/useClientOnlyValue';
-
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
+/**
+ * Layout quản lý Bottom Tab Navigation.
+ *
+ * App hiện tại có 5 tab:
+ *
+ * 1. Tổng quan
+ * 2. Nhiệm vụ
+ * 3. Danh sách
+ * 4. Thông báo
+ * 5. Tôi
+ *
+ * Sau này:
+ * - Badge notification sẽ lấy từ API/store.
+ * - Label sẽ lấy từ i18n.
+ * - Màu sắc sẽ lấy từ Theme.
+ */
+export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme].tint,
-        // Disable the static render of the header on web
-        // to prevent a hydration error in React Navigation v6.
-        headerShown: useClientOnlyValue(false, true),
-      }}>
+        headerShown: false,
+
+        // Màu tab đang được chọn
+        tabBarActiveTintColor: "#1976E9",
+
+        // Màu tab chưa được chọn
+        tabBarInactiveTintColor: "#777777",
+
+        tabBarStyle: {
+          height: 70,
+          paddingTop: 6,
+          paddingBottom: 8,
+          backgroundColor: "#FFFFFF",
+          borderTopWidth: 1,
+          borderTopColor: "#EEEEEE",
+        },
+
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: "500",
+        },
+      }}
+    >
+      {/* Tổng quan */}
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Tab One',
-          tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{
-                ios: 'chevron.left.forwardslash.chevron.right',
-                android: 'code',
-                web: 'code',
-              }}
-              tintColor={color}
-              size={28}
+          title: "Tổng quan",
+
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? "home" : "home-outline"}
+              size={size}
+              color={color}
             />
-          ),
-          headerRight: () => (
-            <Link href="/modal" asChild>
-              <Pressable style={{ marginRight: 15 }}>
-                {({ pressed }) => (
-                  <SymbolView
-                    name={{ ios: 'info.circle', android: 'info', web: 'info' }}
-                    size={25}
-                    tintColor={Colors[colorScheme].text}
-                    style={{ opacity: pressed ? 0.5 : 1 }}
-                  />
-                )}
-              </Pressable>
-            </Link>
           ),
         }}
       />
+
+      {/* Nhiệm vụ */}
       <Tabs.Screen
-        name="two"
+        name="tasks"
         options={{
-          title: 'Tab Two',
-          tabBarIcon: ({ color }) => (
-            <SymbolView
-              name={{
-                ios: 'chevron.left.forwardslash.chevron.right',
-                android: 'code',
-                web: 'code',
-              }}
-              tintColor={color}
-              size={28}
+          title: "Nhiệm vụ",
+
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? "create" : "create-outline"}
+              size={size}
+              color={color}
+            />
+          ),
+        }}
+      />
+
+      {/* Danh sách */}
+      <Tabs.Screen
+        name="menu"
+        options={{
+          title: "Danh sách",
+
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? "grid" : "grid-outline"}
+              size={size}
+              color={color}
+            />
+          ),
+        }}
+      />
+
+      {/* Thông báo */}
+      <Tabs.Screen
+        name="notifications"
+        options={{
+          title: "Thông báo",
+
+          // Tạm thời hard-code 3 giống ảnh mẫu.
+          // Sau này lấy unread count từ API/store.
+          tabBarBadge: 3,
+
+          tabBarBadgeStyle: {
+            backgroundColor: "#FF4D4F",
+            color: "#FFFFFF",
+          },
+
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? "notifications" : "notifications-outline"}
+              size={size}
+              color={color}
+            />
+          ),
+        }}
+      />
+
+      {/* Tôi */}
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: "Tôi",
+
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons
+              name={focused ? "person" : "person-outline"}
+              size={size}
+              color={color}
             />
           ),
         }}
