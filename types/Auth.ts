@@ -25,3 +25,16 @@ export interface authResponse {
   data: authUser[];
   option: object | null;
 }
+
+export interface changePasswordRequest {
+  old_password: string;
+  new_password: string;
+}
+
+export interface changePasswordResponse {
+  result: boolean;
+  message: string;
+  status: number;
+  data: unknown[] | null;
+  options: Object | null;
+}

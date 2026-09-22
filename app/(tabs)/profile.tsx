@@ -223,7 +223,7 @@ export default function ProfileScreen() {
           icon="lock-closed-outline"
           title="Bảo mật & Mật khẩu"
           onPress={() => {
-            // TODO: Security
+            router.push("/(profiles)/change-password");
           }}
         />
 

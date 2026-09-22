@@ -1,8 +1,14 @@
 import axios from "axios";
 import * as SecureStore from "expo-secure-store";
 
+const API_URL = process.env.PUBLIC_API_URL;
+
+if (!API_URL) {
+  throw new Error("lỗi url api");
+}
+
 export const api = axios.create({
-  baseURL: "https://cskh-api.midvietnam.net/api/v1",
+  baseURL: API_URL,
   timeout: 15000,
   headers: {
     "Content-Type": "application/json",
