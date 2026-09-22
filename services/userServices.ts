@@ -1,7 +1,7 @@
 import { api } from "@/services/api";
 
+import { changePasswordRequest, changePasswordResponse } from "@/types/Auth";
 import { userDetail, userDetailResponse, userInfo } from "@/types/User";
-
 export interface UserProfile extends userDetail {
   userInfo: userInfo;
 }
@@ -48,5 +48,24 @@ export const userServices = {
       ...user,
       userInfo,
     };
+  },
+
+  async changePassword(
+    data: changePasswordRequest,
+    token?: string,
+  ): Promise<changePasswordResponse> {
+    const res = await api.patch<changePasswordResponse>(
+      "/cskh/users/change-password",
+      data,
+      token
+        ? {
+            headers: {
+              Authenrization: `Bearer: ${token}`,
+            },
+          }
+        : undefined,
+    );
+
+    return res.data;
   },
 };

@@ -2,20 +2,19 @@ import { Colors } from "@/constants/Colors";
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { useAuthStore } from "@/store/useAuthStore";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
 import {
   ActivityIndicator,
   Image,
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Divider from "@/components/common/Divider";
 import InfoRow from "@/components/common/InfoRow";
+import SubPageHeader from "@/components/common/SubHeader";
 
 export default function UserDetailScreen() {
   const { colors } = useAppTheme();
@@ -33,39 +32,7 @@ export default function UserDetailScreen() {
       ]}
     >
       {/* header */}
-      <View
-        style={[
-          styles.header,
-          {
-            paddingTop: insets.top,
-            backgroundColor: colors.header,
-          },
-        ]}
-      >
-        <View style={styles.headerContent}>
-          <TouchableOpacity
-            style={styles.backButton}
-            activeOpacity={0.7}
-            onPress={() => router.back()}
-          >
-            <Ionicons name="chevron-back" size={26} color={colors.headerText} />
-          </TouchableOpacity>
-
-          <Text
-            style={[
-              styles.headerTitle,
-              {
-                color: colors.headerText,
-              },
-            ]}
-          >
-            Thông tin tài khoản
-          </Text>
-
-          {/* Giúp title cân đối ở giữa */}
-          <View style={styles.headerRight} />
-        </View>
-      </View>
+      <SubPageHeader title="Thông tin tài khoản" />
 
       {/* content */}
       <ScrollView
