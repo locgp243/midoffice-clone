@@ -206,7 +206,7 @@ export default function ProfileScreen() {
           icon="person-outline"
           title="Thông tin tài khoản"
           onPress={() => {
-            // TODO: Account detail
+            router.push("/profile-detail");
           }}
         />
 
@@ -241,7 +241,7 @@ export default function ProfileScreen() {
           title="Thông báo"
           subtitle="Quản lý cài đặt thông báo"
           onPress={() => {
-            // TODO: Notification settings
+            router.push("/(tabs)/notifications");
           }}
         />
 
