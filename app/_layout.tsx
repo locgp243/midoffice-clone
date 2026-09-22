@@ -50,6 +50,12 @@ export default function RootLayout() {
       >
         <Stack.Screen name="login" />
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen
+          name="(profiles)"
+          options={{
+            headerShown: false,
+          }}
+        />
       </Stack>
     </SafeAreaProvider>
   );

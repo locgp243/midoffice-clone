@@ -42,17 +42,6 @@ export const userServices = {
       }
     } catch (e: any) {
       console.log("lỗi: ", e);
-      console.log("=== USER DETAIL ERROR ===");
-
-      console.log("STATUS:", e?.response?.status);
-
-      console.log("DATA:", e?.response?.data);
-
-      console.log("BASE URL:", e?.config?.baseURL);
-
-      console.log("PATH:", e?.config?.url);
-
-      console.log("HAS AUTHORIZATION:", !!e?.config?.headers?.Authorization);
     }
 
     return {
