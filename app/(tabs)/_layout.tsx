@@ -1,137 +1,130 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
+import { View } from "react-native";
 
-/**
- * Layout quản lý Bottom Tab Navigation.
- *
- * App hiện tại có 5 tab:
- *
- * 1. Tổng quan
- * 2. Nhiệm vụ
- * 3. Danh sách
- * 4. Thông báo
- * 5. Tôi
- *
- * Sau này:
- * - Badge notification sẽ lấy từ API/store.
- * - Label sẽ lấy từ i18n.
- * - Màu sắc sẽ lấy từ Theme.
- */
+import AppHeader from "@/components/common/AppHeader";
+import { useAppTheme } from "@/hooks/useAppTheme";
+
 export default function TabsLayout() {
+  const { colors } = useAppTheme();
+
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-
-        // Màu tab đang được chọn
-        tabBarActiveTintColor: "#1976E9",
-
-        // Màu tab chưa được chọn
-        tabBarInactiveTintColor: "#777777",
-
-        tabBarStyle: {
-          height: 70,
-          paddingTop: 6,
-          paddingBottom: 8,
-          backgroundColor: "#FFFFFF",
-          borderTopWidth: 1,
-          borderTopColor: "#EEEEEE",
-        },
-
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: "500",
-        },
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: colors.background,
       }}
     >
-      {/* Tổng quan */}
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Tổng quan",
+      {/* Header dùng chung cho toàn bộ Tabs */}
+      <AppHeader />
 
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name={focused ? "home" : "home-outline"}
-              size={size}
-              color={color}
-            />
-          ),
-        }}
-      />
+      <Tabs
+        screenOptions={{
+          headerShown: false,
 
-      {/* Nhiệm vụ */}
-      <Tabs.Screen
-        name="tasks"
-        options={{
-          title: "Nhiệm vụ",
+          tabBarActiveTintColor: "#1976E9",
+          tabBarInactiveTintColor: colors.textSecondary,
 
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name={focused ? "create" : "create-outline"}
-              size={size}
-              color={color}
-            />
-          ),
-        }}
-      />
+          tabBarStyle: {
+            height: 70,
 
-      {/* Danh sách */}
-      <Tabs.Screen
-        name="menu"
-        options={{
-          title: "Danh sách",
+            paddingTop: 6,
+            paddingBottom: 8,
 
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name={focused ? "grid" : "grid-outline"}
-              size={size}
-              color={color}
-            />
-          ),
-        }}
-      />
+            backgroundColor: colors.surface,
 
-      {/* Thông báo */}
-      <Tabs.Screen
-        name="notifications"
-        options={{
-          title: "Thông báo",
-
-          // Tạm thời hard-code 3 giống ảnh mẫu.
-          // Sau này lấy unread count từ API/store.
-          tabBarBadge: 3,
-
-          tabBarBadgeStyle: {
-            backgroundColor: "#FF4D4F",
-            color: "#FFFFFF",
+            borderTopWidth: 1,
+            borderTopColor: colors.border,
           },
 
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name={focused ? "notifications" : "notifications-outline"}
-              size={size}
-              color={color}
-            />
-          ),
+          tabBarLabelStyle: {
+            fontSize: 12,
+            fontWeight: "500",
+          },
         }}
-      />
+      >
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: "Tổng quan",
 
-      {/* Tôi */}
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Tôi",
+            tabBarIcon: ({ color, size, focused }) => (
+              <Ionicons
+                name={focused ? "home" : "home-outline"}
+                size={size}
+                color={color}
+              />
+            ),
+          }}
+        />
 
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name={focused ? "person" : "person-outline"}
-              size={size}
-              color={color}
-            />
-          ),
-        }}
-      />
-    </Tabs>
+        <Tabs.Screen
+          name="tasks"
+          options={{
+            title: "Nhiệm vụ",
+
+            tabBarIcon: ({ color, size, focused }) => (
+              <Ionicons
+                name={focused ? "create" : "create-outline"}
+                size={size}
+                color={color}
+              />
+            ),
+          }}
+        />
+
+        <Tabs.Screen
+          name="menu"
+          options={{
+            title: "Danh sách",
+
+            tabBarIcon: ({ color, size, focused }) => (
+              <Ionicons
+                name={focused ? "grid" : "grid-outline"}
+                size={size}
+                color={color}
+              />
+            ),
+          }}
+        />
+
+        <Tabs.Screen
+          name="notifications"
+          options={{
+            title: "Thông báo",
+
+            tabBarBadge: 3,
+
+            tabBarBadgeStyle: {
+              backgroundColor: "#FF4D4F",
+              color: "#FFFFFF",
+            },
+
+            tabBarIcon: ({ color, size, focused }) => (
+              <Ionicons
+                name={focused ? "notifications" : "notifications-outline"}
+                size={size}
+                color={color}
+              />
+            ),
+          }}
+        />
+
+        <Tabs.Screen
+          name="profile"
+          options={{
+            title: "Tôi",
+
+            tabBarIcon: ({ color, size, focused }) => (
+              <Ionicons
+                name={focused ? "person" : "person-outline"}
+                size={size}
+                color={color}
+              />
+            ),
+          }}
+        />
+      </Tabs>
+    </View>
   );
 }
