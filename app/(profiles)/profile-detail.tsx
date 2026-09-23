@@ -2,28 +2,56 @@ import AppToast from "@/components/common/AppToast";
 import Divider from "@/components/common/Divider";
 import InfoRow from "@/components/common/InfoRow";
 import SubHeader from "@/components/common/SubHeader";
-
 import { Colors } from "@/constants/Colors";
 import { useAppTheme } from "@/hooks/useAppTheme";
-
+import { userServices } from "@/services/userServices";
 import { useAuthStore } from "@/store/useAuthStore";
-
-import { ScrollView, StyleSheet, Text, View } from "react-native";
-
-import { useRef, useState } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import { useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
 type ToastType = "success" | "error";
+
+interface EditFieldProps {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: string;
+  onChangeText: (value: string) => void;
+  placeholder?: string;
+  keyboardType?: "default" | "email-address" | "phone-pad";
+  autoCapitalize?: "none" | "sentences" | "words" | "characters";
+  colors: {
+    text: string;
+    textSecondary: string;
+    border: string;
+    surface: string;
+  };
+}
 
 export default function ProfileDetailScreen() {
   const { colors } = useAppTheme();
 
   const user = useAuthStore((state) => state.user);
-
   const userDetail = useAuthStore((state) => state.userDetail);
-
   const refreshUserDetail = useAuthStore((state) => state.refreshUserDetail);
 
-  const [showAvatar, setShowAvatar] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
 
   const [toast, setToast] = useState<{
     visible: boolean;
@@ -56,11 +84,25 @@ export default function ProfileDetailScreen() {
     }, 2500);
   };
 
-  const avatar = userDetail?.avatar ?? user?.avatar ?? null;
-
   const userInfo = userDetail?.userInfo;
-
   const userId = user?.userId ?? userDetail?.id;
+
+  useEffect(() => {
+    if (!userDetail) return;
+
+    setName(userDetail.name ?? "");
+    setUsername(userDetail.username ?? "");
+    setEmail(userDetail.userInfo?.gmail ?? "");
+    setPhone(userDetail.userInfo?.phone ?? "");
+  }, [userDetail]);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current) {
+        clearTimeout(toastTimer.current);
+      }
+    };
+  }, []);
 
   const createdAt = userDetail?.created_at
     ? new Date(userDetail.created_at).toLocaleDateString("vi-VN")
@@ -69,160 +111,333 @@ export default function ProfileDetailScreen() {
   const accountStatus =
     userDetail?.is_actived === 1 ? "Đang hoạt động" : "Không hoạt động";
 
+  const resetForm = () => {
+    setName(userDetail?.name ?? "");
+    setUsername(userDetail?.username ?? "");
+    setEmail(userInfo?.gmail ?? "");
+    setPhone(userInfo?.phone ?? "");
+  };
+
+  const handleStartEdit = () => {
+    resetForm();
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    resetForm();
+    setIsEditing(false);
+  };
+
+  const validateForm = () => {
+    if (!name.trim()) {
+      showToast("error", "Vui lòng nhập họ và tên.");
+      return false;
+    }
+
+    if (!username.trim()) {
+      showToast("error", "Vui lòng nhập tên đăng nhập.");
+      return false;
+    }
+
+    if (!email.trim()) {
+      showToast("error", "Vui lòng nhập email.");
+      return false;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!emailRegex.test(email.trim())) {
+      showToast("error", "Email không hợp lệ.");
+      return false;
+    }
+
+    if (!phone.trim()) {
+      showToast("error", "Vui lòng nhập số điện thoại.");
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleSave = async () => {
+    if (isSaving || !validateForm()) return;
+
+    if (!userId) {
+      showToast("error", "Không tìm thấy thông tin người dùng.");
+      return;
+    }
+
+    if (!userDetail) {
+      showToast("error", "Thông tin người dùng chưa được tải.");
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+
+      const payload = {
+        department_id: userDetail.department_id,
+        info: JSON.stringify({
+          gmail: email.trim(),
+          phone: phone.trim(),
+        }),
+        name: name.trim(),
+        parent_id: userDetail.parent_id,
+        username: username.trim(),
+      };
+
+      console.log("check payload:", payload);
+
+      const response = await userServices.updateUser(userId, payload);
+
+      if (!response.result) {
+        throw new Error(response.message || "Cập nhật thông tin thất bại.");
+      }
+
+      await refreshUserDetail();
+      setIsEditing(false);
+      showToast("success", response.message || "Cập nhật thành công.");
+    } catch (error: any) {
+      console.log("lỗi update:", error);
+      console.log("lỗi dtata:", error?.response?.data);
+
+      const message =
+        error?.response?.data?.message ??
+        error?.message ??
+        "Không thể cập nhật thông tin.";
+
+      showToast("error", message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
-    <View
-      style={[
-        styles.screen,
-        {
-          backgroundColor: colors.background,
-        },
-      ]}
-    >
+    <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <SubHeader title="Thông tin tài khoản" />
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.container}
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <View>
-          <Text
-            style={[
-              styles.sectionTitle,
-              {
-                color: colors.textSecondary,
-              },
-            ]}
-          >
-            THÔNG TIN CÁ NHÂN
-          </Text>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.container}
+        >
+          <View>
+            <Text
+              style={[styles.sectionTitle, { color: colors.textSecondary }]}
+            >
+              THÔNG TIN CÁ NHÂN
+            </Text>
 
-          <View
-            style={[
-              styles.card,
-              {
-                backgroundColor: colors.surface,
-              },
-            ]}
-          >
-            <InfoRow
-              icon="person-outline"
-              label="Họ và tên"
-              value={userDetail?.name ?? "---"}
-            />
+            <View style={[styles.card, { backgroundColor: colors.surface }]}>
+              {isEditing ? (
+                <>
+                  <EditField
+                    icon="person-outline"
+                    label="Họ và tên"
+                    value={name}
+                    onChangeText={setName}
+                    placeholder="Nhập họ và tên"
+                    colors={colors}
+                  />
 
-            <Divider />
+                  <Divider />
 
-            <InfoRow
-              icon="at-outline"
-              label="Tên đăng nhập"
-              value={userDetail?.username ?? "---"}
-            />
+                  <EditField
+                    icon="at-outline"
+                    label="Tên đăng nhập"
+                    value={username}
+                    onChangeText={setUsername}
+                    placeholder="Nhập tên đăng nhập"
+                    autoCapitalize="none"
+                    colors={colors}
+                  />
 
-            <Divider />
+                  <Divider />
 
-            <InfoRow
-              icon="mail-outline"
-              label="Email"
-              value={userInfo?.gmail ?? "---"}
-            />
+                  <EditField
+                    icon="mail-outline"
+                    label="Email"
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="Nhập email"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    colors={colors}
+                  />
 
-            <Divider />
+                  <Divider />
 
-            <InfoRow
-              icon="call-outline"
-              label="Số điện thoại"
-              value={userInfo?.phone ?? "---"}
-            />
+                  <EditField
+                    icon="call-outline"
+                    label="Số điện thoại"
+                    value={phone}
+                    onChangeText={setPhone}
+                    placeholder="Nhập số điện thoại"
+                    keyboardType="phone-pad"
+                    colors={colors}
+                  />
+                </>
+              ) : (
+                <>
+                  <InfoRow
+                    icon="person-outline"
+                    label="Họ và tên"
+                    value={userDetail?.name ?? "---"}
+                  />
+
+                  <Divider />
+
+                  <InfoRow
+                    icon="at-outline"
+                    label="Tên đăng nhập"
+                    value={userDetail?.username ?? "---"}
+                  />
+
+                  <Divider />
+
+                  <InfoRow
+                    icon="mail-outline"
+                    label="Email"
+                    value={userInfo?.gmail ?? "---"}
+                  />
+
+                  <Divider />
+
+                  <InfoRow
+                    icon="call-outline"
+                    label="Số điện thoại"
+                    value={userInfo?.phone ?? "---"}
+                  />
+                </>
+              )}
+            </View>
           </View>
-        </View>
 
-        <View>
-          <Text
-            style={[
-              styles.sectionTitle,
-              {
-                color: colors.textSecondary,
-              },
-            ]}
-          >
-            THÔNG TIN CÔNG VIỆC
-          </Text>
+          <View>
+            <Text
+              style={[styles.sectionTitle, { color: colors.textSecondary }]}
+            >
+              THÔNG TIN CÔNG VIỆC
+            </Text>
 
-          <View
-            style={[
-              styles.card,
-              {
-                backgroundColor: colors.surface,
-              },
-            ]}
-          >
-            <InfoRow
-              icon="business-outline"
-              label="Phòng ban"
-              value={userDetail?.department_name ?? "---"}
-            />
+            <View style={[styles.card, { backgroundColor: colors.surface }]}>
+              <InfoRow
+                icon="business-outline"
+                label="Phòng ban"
+                value={userDetail?.department_name ?? "---"}
+              />
 
-            <Divider />
+              <Divider />
 
-            <InfoRow
-              icon="person-circle-outline"
-              label="Trưởng phòng"
-              value={userDetail?.department_head ?? "---"}
-            />
+              <InfoRow
+                icon="person-circle-outline"
+                label="Trưởng phòng"
+                value={userDetail?.department_head ?? "---"}
+              />
 
-            <Divider />
+              <Divider />
 
-            <InfoRow
-              icon="calendar-outline"
-              label="Ngày phép còn lại"
-              value={
-                userDetail?.remaining_days_off !== undefined
-                  ? `${userDetail.remaining_days_off} ngày`
-                  : "---"
-              }
-            />
+              <InfoRow
+                icon="calendar-outline"
+                label="Ngày phép còn lại"
+                value={
+                  userDetail?.remaining_days_off !== undefined
+                    ? `${userDetail.remaining_days_off} ngày`
+                    : "---"
+                }
+              />
+            </View>
           </View>
-        </View>
 
-        <View>
-          <Text
-            style={[
-              styles.sectionTitle,
-              {
-                color: colors.textSecondary,
-              },
-            ]}
-          >
-            TÀI KHOẢN
-          </Text>
+          <View>
+            <Text
+              style={[styles.sectionTitle, { color: colors.textSecondary }]}
+            >
+              TÀI KHOẢN
+            </Text>
 
-          <View
-            style={[
-              styles.card,
-              {
-                backgroundColor: colors.surface,
-              },
-            ]}
-          >
-            <InfoRow
-              icon="checkmark-circle-outline"
-              label="Trạng thái"
-              value={accountStatus}
-              valueColor={
-                userDetail?.is_actived === 1 ? Colors.success : Colors.danger
-              }
-            />
+            <View style={[styles.card, { backgroundColor: colors.surface }]}>
+              <InfoRow
+                icon="checkmark-circle-outline"
+                label="Trạng thái"
+                value={accountStatus}
+                valueColor={
+                  userDetail?.is_actived === 1 ? Colors.success : Colors.danger
+                }
+              />
 
-            <Divider />
+              <Divider />
 
-            <InfoRow
-              icon="calendar-clear-outline"
-              label="Ngày tạo"
-              value={createdAt}
-            />
+              <InfoRow
+                icon="calendar-clear-outline"
+                label="Ngày tạo"
+                value={createdAt}
+              />
+            </View>
           </View>
-        </View>
-      </ScrollView>
+
+          {!isEditing ? (
+            <Pressable
+              onPress={handleStartEdit}
+              style={({ pressed }) => [
+                styles.editButton,
+                { opacity: pressed ? 0.8 : 1 },
+              ]}
+            >
+              <Ionicons name="create-outline" size={20} color="#FFFFFF" />
+              <Text style={styles.editButtonText}>Chỉnh sửa thông tin</Text>
+            </Pressable>
+          ) : (
+            <View style={styles.actionRow}>
+              <Pressable
+                disabled={isSaving}
+                onPress={handleCancelEdit}
+                style={({ pressed }) => [
+                  styles.cancelButton,
+                  {
+                    borderColor: colors.border,
+                    backgroundColor: colors.surface,
+                    opacity: isSaving ? 0.5 : pressed ? 0.7 : 1,
+                  },
+                ]}
+              >
+                <Text style={[styles.cancelButtonText, { color: colors.text }]}>
+                  Hủy
+                </Text>
+              </Pressable>
+
+              <Pressable
+                disabled={isSaving}
+                onPress={handleSave}
+                style={({ pressed }) => [
+                  styles.saveButton,
+                  {
+                    opacity: isSaving ? 0.6 : pressed ? 0.8 : 1,
+                  },
+                ]}
+              >
+                {isSaving ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Ionicons
+                    name="checkmark-outline"
+                    size={20}
+                    color="#FFFFFF"
+                  />
+                )}
+
+                <Text style={styles.saveButtonText}>
+                  {isSaving ? "Đang lưu..." : "Lưu thay đổi"}
+                </Text>
+              </Pressable>
+            </View>
+          )}
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       <View pointerEvents="none" style={styles.toastContainer}>
         <AppToast
@@ -235,132 +450,142 @@ export default function ProfileDetailScreen() {
   );
 }
 
+function EditField({
+  icon,
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  keyboardType = "default",
+  autoCapitalize = "sentences",
+  colors,
+}: EditFieldProps) {
+  return (
+    <View style={styles.editField}>
+      <View style={styles.editFieldHeader}>
+        <Ionicons name={icon} size={20} color={Colors.primary} />
+        <Text style={[styles.editFieldLabel, { color: colors.textSecondary }]}>
+          {label}
+        </Text>
+      </View>
+
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={colors.textSecondary}
+        keyboardType={keyboardType}
+        autoCapitalize={autoCapitalize}
+        autoCorrect={false}
+        style={[
+          styles.input,
+          {
+            color: colors.text,
+            borderColor: colors.border,
+            backgroundColor: colors.surface,
+          },
+        ]}
+      />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
   },
-
+  flex: {
+    flex: 1,
+  },
   container: {
     padding: 16,
-
     paddingBottom: 40,
-
     gap: 24,
   },
-
-  profileCard: {
-    alignItems: "center",
-
-    padding: 24,
-
-    borderRadius: 16,
-  },
-
-  avatarButton: {
-    position: "relative",
-  },
-
-  cameraBadge: {
-    position: "absolute",
-
-    right: 0,
-
-    bottom: 0,
-
-    width: 30,
-
-    height: 30,
-
-    borderRadius: 15,
-
-    alignItems: "center",
-
-    justifyContent: "center",
-
-    backgroundColor: Colors.primary,
-
-    borderWidth: 2,
-
-    borderColor: "#FFFFFF",
-  },
-
-  name: {
-    marginTop: 14,
-
-    fontSize: 20,
-
-    fontWeight: "700",
-  },
-
-  username: {
-    marginTop: 4,
-
-    fontSize: 14,
-  },
-
-  roleContainer: {
-    flexDirection: "row",
-
-    alignItems: "center",
-
-    gap: 6,
-
-    marginTop: 10,
-
-    paddingHorizontal: 12,
-
-    paddingVertical: 6,
-
-    borderRadius: 20,
-
-    backgroundColor: "rgba(25, 118, 233, 0.10)",
-  },
-
-  roleText: {
-    color: Colors.primary,
-
-    fontSize: 13,
-
-    fontWeight: "600",
-  },
-
-  avatarHint: {
-    marginTop: 12,
-
-    fontSize: 12,
-  },
-
   sectionTitle: {
     marginLeft: 4,
-
     marginBottom: 8,
-
     fontSize: 12,
-
     fontWeight: "600",
-
     letterSpacing: 0.5,
   },
-
   card: {
     paddingHorizontal: 16,
-
     borderRadius: 16,
-
     overflow: "hidden",
   },
-
+  editField: {
+    paddingVertical: 14,
+  },
+  editFieldHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 10,
+  },
+  editFieldLabel: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  input: {
+    minHeight: 46,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderRadius: 10,
+    fontSize: 15,
+  },
+  editButton: {
+    height: 52,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 12,
+    backgroundColor: Colors.primary,
+  },
+  editButtonText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  actionRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  cancelButton: {
+    flex: 1,
+    height: 52,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderRadius: 12,
+  },
+  cancelButtonText: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  saveButton: {
+    flex: 2,
+    height: 52,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 12,
+    backgroundColor: Colors.primary,
+  },
+  saveButtonText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "600",
+  },
   toastContainer: {
     position: "absolute",
-
     top: 30,
-
     left: 16,
-
     right: 16,
-
     zIndex: 9999,
-
     elevation: 30,
   },
 });
