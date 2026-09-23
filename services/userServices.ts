@@ -1,7 +1,13 @@
 import { api } from "@/services/api";
 
 import { changePasswordRequest, changePasswordResponse } from "@/types/Auth";
-import { userDetail, userDetailResponse, userInfo } from "@/types/User";
+import {
+  userDetail,
+  userDetailResponse,
+  userInfo,
+  userUpdateRequest,
+  userUpdateResponse,
+} from "@/types/User";
 export interface UserProfile extends userDetail {
   userInfo: userInfo;
 }
@@ -122,6 +128,25 @@ export const userServices = {
       console.log("UPLOAD AVATAR MESSAGE:", error?.message);
 
       throw error;
+    }
+  },
+
+  async updateUser(
+    userId: number,
+    data: userUpdateRequest,
+  ): Promise<userUpdateResponse> {
+    try {
+      const res = await api.patch<userUpdateResponse>(
+        `/cskh/users/update/${userId}`,
+        data,
+      );
+
+      console.log("log data: ", data);
+
+      return res.data;
+    } catch (e) {
+      console.log("Lỗi khi cập nhật thông tin người dùng: ", e);
+      throw e;
     }
   },
 };

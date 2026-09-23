@@ -46,3 +46,35 @@ export interface UploadAvatarResponse {
   ];
   options: object;
 }
+
+export interface userUpdateRequest {
+  department_id: number;
+  info: String;
+  name: String;
+  parent_id: number;
+  username: String;
+}
+
+export interface userUpdateResponse {
+  result: boolean;
+  message: string;
+  status: number;
+
+  data: {
+    so_phep_nam: number;
+    starting_date: string;
+    name_bank: string;
+    stk: string;
+    cccd: string;
+    info: string;
+    department_id: number;
+    parent_id: number;
+    name: string;
+    username: string;
+    updated_at: number;
+    birthday: string;
+    id: string;
+  };
+
+  options: object;
+}
