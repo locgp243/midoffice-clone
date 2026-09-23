@@ -68,4 +68,60 @@ export const userServices = {
 
     return res.data;
   },
+
+  async uploadAvatar(userId: number, imageUri: string) {
+    const formData = new FormData();
+
+    const fileName = imageUri.split("/").pop() || `avatar-${Date.now()}.jpg`;
+
+    const extension = fileName.split(".").pop()?.toLowerCase();
+
+    let mimeType = "image/jpeg";
+
+    if (extension === "png") {
+      mimeType = "image/png";
+    } else if (extension === "webp") {
+      mimeType = "image/webp";
+    } else if (extension === "heic" || extension === "heif") {
+      mimeType = "image/heic";
+    }
+
+    console.log("UPLOAD USER ID:", userId);
+
+    console.log("UPLOAD URI:", imageUri);
+
+    console.log("UPLOAD FILE NAME:", fileName);
+
+    console.log("UPLOAD MIME:", mimeType);
+
+    formData.append("avatar", {
+      uri: imageUri,
+
+      name: fileName,
+
+      type: mimeType,
+    } as any);
+
+    try {
+      const response = await api.patch(
+        `/cskh/users/upload-avatar/${userId}`,
+        formData,
+      );
+
+      console.log("UPLOAD AVATAR SUCCESS:", response.data);
+
+      return response.data;
+    } catch (error: any) {
+      console.log("UPLOAD AVATAR STATUS:", error?.response?.status);
+
+      console.log(
+        "UPLOAD AVATAR ERROR DATA:",
+        JSON.stringify(error?.response?.data, null, 2),
+      );
+
+      console.log("UPLOAD AVATAR MESSAGE:", error?.message);
+
+      throw error;
+    }
+  },
 };

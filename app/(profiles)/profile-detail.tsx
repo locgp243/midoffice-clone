@@ -1,411 +1,366 @@
-import { Colors } from "@/constants/Colors";
-import { useAppTheme } from "@/hooks/useAppTheme";
-import { useAuthStore } from "@/store/useAuthStore";
-import { Ionicons } from "@expo/vector-icons";
-import {
-  ActivityIndicator,
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-
+import AppToast from "@/components/common/AppToast";
 import Divider from "@/components/common/Divider";
 import InfoRow from "@/components/common/InfoRow";
-import SubPageHeader from "@/components/common/SubHeader";
+import SubHeader from "@/components/common/SubHeader";
 
-export default function UserDetailScreen() {
+import { Colors } from "@/constants/Colors";
+import { useAppTheme } from "@/hooks/useAppTheme";
+
+import { useAuthStore } from "@/store/useAuthStore";
+
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+
+import { useRef, useState } from "react";
+
+type ToastType = "success" | "error";
+
+export default function ProfileDetailScreen() {
   const { colors } = useAppTheme();
-  const insets = useSafeAreaInsets();
+
+  const user = useAuthStore((state) => state.user);
 
   const userDetail = useAuthStore((state) => state.userDetail);
+
+  const refreshUserDetail = useAuthStore((state) => state.refreshUserDetail);
+
+  const [showAvatar, setShowAvatar] = useState(false);
+
+  const [toast, setToast] = useState<{
+    visible: boolean;
+    type: ToastType;
+    message: string;
+  }>({
+    visible: false,
+    type: "success",
+    message: "",
+  });
+
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = (type: ToastType, message: string) => {
+    if (toastTimer.current) {
+      clearTimeout(toastTimer.current);
+    }
+
+    setToast({
+      visible: true,
+      type,
+      message,
+    });
+
+    toastTimer.current = setTimeout(() => {
+      setToast((current) => ({
+        ...current,
+        visible: false,
+      }));
+    }, 2500);
+  };
+
+  const avatar = userDetail?.avatar ?? user?.avatar ?? null;
+
+  const userInfo = userDetail?.userInfo;
+
+  const userId = user?.userId ?? userDetail?.id;
+
+  const createdAt = userDetail?.created_at
+    ? new Date(userDetail.created_at).toLocaleDateString("vi-VN")
+    : "---";
+
+  const accountStatus =
+    userDetail?.is_actived === 1 ? "Đang hoạt động" : "Không hoạt động";
 
   return (
     <View
       style={[
-        styles.container,
+        styles.screen,
         {
           backgroundColor: colors.background,
         },
       ]}
     >
-      {/* header */}
-      <SubPageHeader title="Thông tin tài khoản" />
+      <SubHeader title="Thông tin tài khoản" />
 
-      {/* content */}
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={styles.container}
       >
-        {!userDetail ? (
-          // loading
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={Colors.primary} />
+        <View>
+          <Text
+            style={[
+              styles.sectionTitle,
+              {
+                color: colors.textSecondary,
+              },
+            ]}
+          >
+            THÔNG TIN CÁ NHÂN
+          </Text>
 
-            <Text
-              style={[
-                styles.loadingText,
-                {
-                  color: colors.textSecondary,
-                },
-              ]}
-            >
-              Đang tải thông tin...
-            </Text>
+          <View
+            style={[
+              styles.card,
+              {
+                backgroundColor: colors.surface,
+              },
+            ]}
+          >
+            <InfoRow
+              icon="person-outline"
+              label="Họ và tên"
+              value={userDetail?.name ?? "---"}
+            />
+
+            <Divider />
+
+            <InfoRow
+              icon="at-outline"
+              label="Tên đăng nhập"
+              value={userDetail?.username ?? "---"}
+            />
+
+            <Divider />
+
+            <InfoRow
+              icon="mail-outline"
+              label="Email"
+              value={userInfo?.gmail ?? "---"}
+            />
+
+            <Divider />
+
+            <InfoRow
+              icon="call-outline"
+              label="Số điện thoại"
+              value={userInfo?.phone ?? "---"}
+            />
           </View>
-        ) : (
-          <>
-            {/* profile */}
-            <View style={styles.profileSection}>
-              {userDetail.avatar ? (
-                <Image
-                  source={{
-                    uri: userDetail.avatar,
-                  }}
-                  style={styles.avatar}
-                />
-              ) : (
-                <View
-                  style={[
-                    styles.avatarPlaceholder,
-                    {
-                      backgroundColor: Colors.primary,
-                    },
-                  ]}
-                >
-                  <Ionicons name="person" size={48} color="#FFFFFF" />
-                </View>
-              )}
+        </View>
 
-              <Text
-                style={[
-                  styles.name,
-                  {
-                    color: colors.text,
-                  },
-                ]}
-              >
-                {userDetail.name}
-              </Text>
+        <View>
+          <Text
+            style={[
+              styles.sectionTitle,
+              {
+                color: colors.textSecondary,
+              },
+            ]}
+          >
+            THÔNG TIN CÔNG VIỆC
+          </Text>
 
-              <Text
-                style={[
-                  styles.username,
-                  {
-                    color: colors.textSecondary,
-                  },
-                ]}
-              >
-                @{userDetail.username}
-              </Text>
-            </View>
+          <View
+            style={[
+              styles.card,
+              {
+                backgroundColor: colors.surface,
+              },
+            ]}
+          >
+            <InfoRow
+              icon="business-outline"
+              label="Phòng ban"
+              value={userDetail?.department_name ?? "---"}
+            />
 
-            {/* thông tin cá nhân */}
-            <Text
-              style={[
-                styles.sectionTitle,
-                {
-                  color: colors.textSecondary,
-                },
-              ]}
-            >
-              THÔNG TIN CÁ NHÂN
-            </Text>
+            <Divider />
 
-            <View
-              style={[
-                styles.card,
-                {
-                  backgroundColor: colors.surface,
-                },
-              ]}
-            >
-              <InfoRow
-                icon="person-outline"
-                label="Họ và tên"
-                value={userDetail.name}
-              />
+            <InfoRow
+              icon="person-circle-outline"
+              label="Trưởng phòng"
+              value={userDetail?.department_head ?? "---"}
+            />
 
-              <Divider />
+            <Divider />
 
-              <InfoRow
-                icon="at-outline"
-                label="Tên đăng nhập"
-                value={userDetail.username}
-              />
+            <InfoRow
+              icon="calendar-outline"
+              label="Ngày phép còn lại"
+              value={
+                userDetail?.remaining_days_off !== undefined
+                  ? `${userDetail.remaining_days_off} ngày`
+                  : "---"
+              }
+            />
+          </View>
+        </View>
 
-              <Divider />
+        <View>
+          <Text
+            style={[
+              styles.sectionTitle,
+              {
+                color: colors.textSecondary,
+              },
+            ]}
+          >
+            TÀI KHOẢN
+          </Text>
 
-              <InfoRow
-                icon="mail-outline"
-                label="Email"
-                value={userDetail.userInfo?.gmail}
-              />
+          <View
+            style={[
+              styles.card,
+              {
+                backgroundColor: colors.surface,
+              },
+            ]}
+          >
+            <InfoRow
+              icon="checkmark-circle-outline"
+              label="Trạng thái"
+              value={accountStatus}
+              valueColor={
+                userDetail?.is_actived === 1 ? Colors.success : Colors.danger
+              }
+            />
 
-              <Divider />
+            <Divider />
 
-              <InfoRow
-                icon="call-outline"
-                label="Số điện thoại"
-                value={userDetail.userInfo?.phone}
-              />
-            </View>
-
-            {/* thonog tin công việc */}
-            <Text
-              style={[
-                styles.sectionTitle,
-                {
-                  color: colors.textSecondary,
-                },
-              ]}
-            >
-              THÔNG TIN CÔNG VIỆC
-            </Text>
-
-            <View
-              style={[
-                styles.card,
-                {
-                  backgroundColor: colors.surface,
-                },
-              ]}
-            >
-              <InfoRow
-                icon="business-outline"
-                label="Phòng ban"
-                value={userDetail.department_name}
-              />
-
-              <Divider />
-
-              <InfoRow
-                icon="people-outline"
-                label="Trưởng phòng"
-                value={userDetail.department_head}
-              />
-
-              <Divider />
-
-              <InfoRow
-                icon="calendar-outline"
-                label="Số ngày phép còn lại"
-                value={
-                  userDetail.remaining_days_off !== undefined
-                    ? `${userDetail.remaining_days_off} ngày`
-                    : "---"
-                }
-              />
-            </View>
-
-            {/* thông tin hệ thống */}
-            <Text
-              style={[
-                styles.sectionTitle,
-                {
-                  color: colors.textSecondary,
-                },
-              ]}
-            >
-              THÔNG TIN HỆ THỐNG
-            </Text>
-
-            <View
-              style={[
-                styles.card,
-                {
-                  backgroundColor: colors.surface,
-                },
-              ]}
-            >
-              <InfoRow
-                icon="key-outline"
-                label="User ID"
-                value={String(userDetail.id)}
-              />
-
-              <Divider />
-
-              <InfoRow
-                icon={
-                  userDetail.is_actived === 1
-                    ? "checkmark-circle-outline"
-                    : "close-circle-outline"
-                }
-                label="Trạng thái"
-                value={
-                  userDetail.is_actived === 1
-                    ? "Đang hoạt động"
-                    : "Không hoạt động"
-                }
-                valueColor={
-                  userDetail.is_actived === 1 ? Colors.success : Colors.danger
-                }
-              />
-
-              <Divider />
-
-              <InfoRow
-                icon="calendar-outline"
-                label="Ngày tạo"
-                value={
-                  userDetail.created_at
-                    ? new Date(userDetail.created_at).toLocaleDateString(
-                        "vi-VN",
-                      )
-                    : "---"
-                }
-              />
-            </View>
-          </>
-        )}
+            <InfoRow
+              icon="calendar-clear-outline"
+              label="Ngày tạo"
+              value={createdAt}
+            />
+          </View>
+        </View>
       </ScrollView>
+
+      <View pointerEvents="none" style={styles.toastContainer}>
+        <AppToast
+          visible={toast.visible}
+          type={toast.type}
+          message={toast.message}
+        />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  screen: {
     flex: 1,
   },
 
-  //header
-
-  header: {
-    width: "100%",
-  },
-
-  headerContent: {
-    height: 52,
-
-    flexDirection: "row",
-
-    alignItems: "center",
-
-    justifyContent: "space-between",
-
-    paddingHorizontal: 8,
-  },
-
-  backButton: {
-    width: 44,
-
-    height: 44,
-
-    alignItems: "center",
-
-    justifyContent: "center",
-  },
-
-  headerRight: {
-    width: 44,
-  },
-
-  headerTitle: {
-    fontSize: 17,
-
-    fontWeight: "600",
-  },
-
-  // content
-
-  content: {
+  container: {
     padding: 16,
 
     paddingBottom: 40,
+
+    gap: 24,
   },
 
-  // loading
-
-  loadingContainer: {
+  profileCard: {
     alignItems: "center",
 
-    justifyContent: "center",
+    padding: 24,
 
-    paddingVertical: 100,
+    borderRadius: 16,
   },
 
-  loadingText: {
-    fontSize: 14,
-
-    marginTop: 12,
+  avatarButton: {
+    position: "relative",
   },
 
-  // profile
+  cameraBadge: {
+    position: "absolute",
 
-  profileSection: {
-    alignItems: "center",
+    right: 0,
 
-    paddingVertical: 20,
+    bottom: 0,
 
-    marginBottom: 8,
-  },
+    width: 30,
 
-  avatar: {
-    width: 96,
+    height: 30,
 
-    height: 96,
-
-    borderRadius: 48,
-
-    borderWidth: 3,
-
-    borderColor: "#FFFFFF",
-  },
-
-  avatarPlaceholder: {
-    width: 96,
-
-    height: 96,
-
-    borderRadius: 48,
+    borderRadius: 15,
 
     alignItems: "center",
 
     justifyContent: "center",
 
-    borderWidth: 3,
+    backgroundColor: Colors.primary,
+
+    borderWidth: 2,
 
     borderColor: "#FFFFFF",
   },
 
   name: {
+    marginTop: 14,
+
     fontSize: 20,
 
     fontWeight: "700",
-
-    marginTop: 12,
   },
 
   username: {
-    fontSize: 14,
-
     marginTop: 4,
+
+    fontSize: 14,
   },
 
-  // secton
+  roleContainer: {
+    flexDirection: "row",
+
+    alignItems: "center",
+
+    gap: 6,
+
+    marginTop: 10,
+
+    paddingHorizontal: 12,
+
+    paddingVertical: 6,
+
+    borderRadius: 20,
+
+    backgroundColor: "rgba(25, 118, 233, 0.10)",
+  },
+
+  roleText: {
+    color: Colors.primary,
+
+    fontSize: 13,
+
+    fontWeight: "600",
+  },
+
+  avatarHint: {
+    marginTop: 12,
+
+    fontSize: 12,
+  },
 
   sectionTitle: {
+    marginLeft: 4,
+
+    marginBottom: 8,
+
     fontSize: 12,
 
     fontWeight: "600",
 
-    marginTop: 16,
-
-    marginBottom: 8,
-
-    marginLeft: 4,
+    letterSpacing: 0.5,
   },
 
-  //card
-
   card: {
-    borderRadius: 16,
-
     paddingHorizontal: 16,
 
-    marginBottom: 8,
+    borderRadius: 16,
+
+    overflow: "hidden",
+  },
+
+  toastContainer: {
+    position: "absolute",
+
+    top: 30,
+
+    left: 16,
+
+    right: 16,
+
+    zIndex: 9999,
+
+    elevation: 30,
   },
 });

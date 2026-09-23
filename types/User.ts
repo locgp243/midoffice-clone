@@ -28,3 +28,21 @@ export interface userInfo {
   gmail: string;
   phone: string;
 }
+
+export interface UploadAvatarResponse {
+  result: Boolean;
+  message: String;
+  status: number;
+  data: [
+    {
+      fieldCount: number;
+      affectedRows: number;
+      insetedId: number;
+      info: String;
+      serverStatus: number;
+      warningStatus: number;
+      changedRows: number;
+    },
+  ];
+  options: object;
+}
