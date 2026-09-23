@@ -1,20 +1,31 @@
-import { Ionicons } from "@expo/vector-icons";
-import { Redirect, Tabs } from "expo-router";
-import { View } from "react-native";
-
 import AppHeader from "@/components/common/AppHeader";
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useNotificationStore } from "@/store/useNotificationStore";
+import { Ionicons } from "@expo/vector-icons";
+import { Redirect, Tabs } from "expo-router";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { View } from "react-native";
 
 export default function TabsLayout() {
   const { colors } = useAppTheme();
+  const { t } = useTranslation();
 
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-
   const isInitialized = useAuthStore((state) => state.isInitialized);
 
-  // Sau hooks mới được return
+  const unseenCount = useNotificationStore((state) => state.unseenCount);
+  const fetchNotifications = useNotificationStore(
+    (state) => state.fetchNotifications,
+  );
+
+  useEffect(() => {
+    if (isInitialized && isAuthenticated) {
+      fetchNotifications();
+    }
+  }, [isInitialized, isAuthenticated, fetchNotifications]);
+
   if (!isInitialized) {
     return null;
   }
@@ -23,8 +34,6 @@ export default function TabsLayout() {
     return <Redirect href="/login" />;
   }
 
-  const { t } = useTranslation();
-
   return (
     <View
       style={{
@@ -32,28 +41,21 @@ export default function TabsLayout() {
         backgroundColor: colors.background,
       }}
     >
-      {/* Header dùng chung cho toàn bộ Tabs */}
       <AppHeader />
 
       <Tabs
         screenOptions={{
           headerShown: false,
-
           tabBarActiveTintColor: "#1976E9",
           tabBarInactiveTintColor: colors.textSecondary,
-
           tabBarStyle: {
             height: 70,
-
             paddingTop: 6,
             paddingBottom: 8,
-
             backgroundColor: colors.surface,
-
             borderTopWidth: 1,
             borderTopColor: colors.border,
           },
-
           tabBarLabelStyle: {
             fontSize: 12,
             fontWeight: "500",
@@ -64,7 +66,6 @@ export default function TabsLayout() {
           name="index"
           options={{
             title: t("tabs.home"),
-
             tabBarIcon: ({ color, size, focused }) => (
               <Ionicons
                 name={focused ? "home" : "home-outline"}
@@ -79,7 +80,6 @@ export default function TabsLayout() {
           name="tasks"
           options={{
             title: t("tabs.tasks"),
-
             tabBarIcon: ({ color, size, focused }) => (
               <Ionicons
                 name={focused ? "create" : "create-outline"}
@@ -94,7 +94,6 @@ export default function TabsLayout() {
           name="menu"
           options={{
             title: t("tabs.menu"),
-
             tabBarIcon: ({ color, size, focused }) => (
               <Ionicons
                 name={focused ? "grid" : "grid-outline"}
@@ -109,14 +108,11 @@ export default function TabsLayout() {
           name="notifications"
           options={{
             title: t("tabs.notifications"),
-
-            tabBarBadge: 3,
-
+            tabBarBadge: unseenCount > 0 ? unseenCount : undefined,
             tabBarBadgeStyle: {
               backgroundColor: "#FF4D4F",
               color: "#FFFFFF",
             },
-
             tabBarIcon: ({ color, size, focused }) => (
               <Ionicons
                 name={focused ? "notifications" : "notifications-outline"}
@@ -131,7 +127,6 @@ export default function TabsLayout() {
           name="profile"
           options={{
             title: t("tabs.profile"),
-
             tabBarIcon: ({ color, size, focused }) => (
               <Ionicons
                 name={focused ? "person" : "person-outline"}
