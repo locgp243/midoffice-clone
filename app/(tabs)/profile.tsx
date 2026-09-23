@@ -1,5 +1,15 @@
+import AppToast from "@/components/common/AppToast";
+import Avatar from "@/components/common/Avatar";
+import AvatarViewer from "@/components/common/AvatarViewer";
+import { Radius, Spacing } from "@/constants/Spacing";
+import { FontSize, FontWeight } from "@/constants/Typography";
+import { useAppTheme } from "@/hooks/useAppTheme";
+import { userServices } from "@/services/userServices";
+import { useAuthStore } from "@/store/useAuthStore";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Alert,
   Pressable,
@@ -9,15 +19,6 @@ import {
   View,
 } from "react-native";
 
-import AppToast from "@/components/common/AppToast";
-import Avatar from "@/components/common/Avatar";
-import AvatarViewer from "@/components/common/AvatarViewer";
-import { Radius, Spacing } from "@/constants/Spacing";
-import { FontSize, FontWeight } from "@/constants/Typography";
-import { useAppTheme } from "@/hooks/useAppTheme";
-import { userServices } from "@/services/userServices";
-import { useAuthStore } from "@/store/useAuthStore";
-import { useState } from "react";
 type IconName = keyof typeof Ionicons.glyphMap;
 
 interface ProfileRowProps {
@@ -105,6 +106,9 @@ function ProfileRow({
 }
 
 export default function ProfileScreen() {
+  const { colors } = useAppTheme();
+  const { t } = useTranslation();
+
   const [showAvatar, setShowAvatar] = useState(false);
   const [localAvatar, setLocalAvatar] = useState<string | null>(null);
 
@@ -114,35 +118,26 @@ export default function ProfileScreen() {
     message: "",
   });
 
-  const { colors } = useAppTheme();
-
   const user = useAuthStore((state) => state.user);
-
   const userDetail = useAuthStore((state) => state.userDetail);
+  const refreshUserDetail = useAuthStore((state) => state.refreshUserDetail);
+  const logout = useAuthStore((state) => state.logout);
 
   const avatar = localAvatar ?? userDetail?.avatar ?? user?.avatar ?? null;
 
-  const refreshUserDetail = useAuthStore((state) => state.refreshUserDetail);
-
   const userId = user?.userId ?? userDetail?.id;
 
-  console.log("check avatar:", userDetail?.avatar);
-
-  const logout = useAuthStore((state) => state.logout);
-
   const handleLogout = () => {
-    Alert.alert("Đăng xuất", "Bạn có chắc chắn muốn đăng xuất?", [
+    Alert.alert(t("profile.logout"), t("profile.logoutConfirm"), [
       {
-        text: "Hủy",
+        text: t("common.cancel"),
         style: "cancel",
       },
       {
-        text: "Đăng xuất",
+        text: t("profile.logout"),
         style: "destructive",
-
         onPress: async () => {
           await logout();
-
           router.replace("/login");
         },
       },
@@ -176,7 +171,6 @@ export default function ProfileScreen() {
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
       >
-        {/* User information */}
         <View
           style={[
             styles.profileCard,
@@ -186,9 +180,7 @@ export default function ProfileScreen() {
           ]}
         >
           <Pressable
-            onPress={() => {
-              setShowAvatar(true);
-            }}
+            onPress={() => setShowAvatar(true)}
             style={styles.avatarButton}
           >
             <Avatar source={avatar} size={90} />
@@ -207,7 +199,7 @@ export default function ProfileScreen() {
                 },
               ]}
             >
-              {userDetail?.name ?? "Người dùng"}
+              {userDetail?.name ?? t("profile.defaultUser")}
             </Text>
 
             <Text
@@ -225,13 +217,12 @@ export default function ProfileScreen() {
               <Ionicons name="briefcase-outline" size={16} color="#1976E9" />
 
               <Text style={styles.role}>
-                {userDetail?.department_name ?? "Nhân viên"}
+                {userDetail?.department_name ?? t("profile.defaultEmployee")}
               </Text>
             </View>
           </View>
         </View>
 
-        {/* Account */}
         <View
           style={[
             styles.menuCard,
@@ -242,7 +233,7 @@ export default function ProfileScreen() {
         >
           <ProfileRow
             icon="person-outline"
-            title="Thông tin tài khoản"
+            title={t("profile.title")}
             onPress={() => {
               router.push("/profile-detail");
             }}
@@ -259,7 +250,7 @@ export default function ProfileScreen() {
 
           <ProfileRow
             icon="lock-closed-outline"
-            title="Bảo mật & Mật khẩu"
+            title={t("profile.changePassword")}
             onPress={() => {
               router.push("/(profiles)/change-password");
             }}
@@ -276,8 +267,8 @@ export default function ProfileScreen() {
 
           <ProfileRow
             icon="notifications-outline"
-            title="Thông báo"
-            subtitle="Quản lý cài đặt thông báo"
+            title={t("profile.notifications")}
+            subtitle={t("profile.notificationSettings")}
             onPress={() => {
               router.push("/(tabs)/notifications");
             }}
@@ -294,14 +285,13 @@ export default function ProfileScreen() {
 
           <ProfileRow
             icon="settings-outline"
-            title="Cài đặt"
+            title={t("profile.settings")}
             onPress={() => {
-              // TODO: Settings
+              router.push("/(profiles)/multi-languages");
             }}
           />
         </View>
 
-        {/* System */}
         <View
           style={[
             styles.menuCard,
@@ -312,7 +302,7 @@ export default function ProfileScreen() {
         >
           <ProfileRow
             icon="information-circle-outline"
-            title="Phiên bản"
+            title={t("profile.version")}
             subtitle="1.0.0"
             showArrow={false}
           />
@@ -328,10 +318,8 @@ export default function ProfileScreen() {
 
           <ProfileRow
             icon="refresh-outline"
-            title="Khởi động lại ứng dụng"
-            onPress={() => {
-              // TODO
-            }}
+            title={t("profile.restartApp")}
+            onPress={() => {}}
           />
 
           <View
@@ -345,7 +333,7 @@ export default function ProfileScreen() {
 
           <ProfileRow
             icon="log-out-outline"
-            title="Đăng xuất"
+            title={t("profile.logout")}
             danger
             showArrow={false}
             onPress={handleLogout}
@@ -363,32 +351,28 @@ export default function ProfileScreen() {
           MID Office
         </Text>
       </ScrollView>
+
       <AvatarViewer
         visible={showAvatar}
         avatar={userDetail?.avatar ?? user?.avatar ?? null}
-        onClose={() => {
-          setShowAvatar(false);
-        }}
+        onClose={() => setShowAvatar(false)}
         onConfirmImage={async (uri) => {
           if (!userId) {
-            throw new Error("Không tìm thấy thông tin người dùng.");
+            throw new Error(t("profile.userIdNotFound"));
           }
 
           const response = await userServices.uploadAvatar(userId, uri);
 
           if (!response.result) {
-            throw new Error(
-              response.message.toString() || "Không thể cập nhật ảnh đại diện.",
-            );
+            throw new Error(t("avatar.updateFailed"));
           }
 
-          // Lấy avatar mới từ server
           await refreshUserDetail();
 
-          // Sau đó Toast thành công
-          showToast("success", response.message.toString());
+          showToast("success", t("avatar.updateSuccess"));
         }}
       />
+
       <View pointerEvents="none" style={styles.toastContainer}>
         <AppToast
           visible={toast.visible}
@@ -404,175 +388,119 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
   },
-
   container: {
     padding: Spacing.lg,
-
     gap: Spacing.lg,
-
     paddingBottom: Spacing.xxxl,
   },
-
   profileCard: {
     flexDirection: "row",
     alignItems: "center",
-
     padding: Spacing.xl,
-
     borderRadius: Radius.lg,
   },
-
   avatar: {
     width: 82,
     height: 82,
-
     borderRadius: 41,
   },
-
   avatarPlaceholder: {
     width: 82,
     height: 82,
-
     alignItems: "center",
     justifyContent: "center",
-
     borderRadius: 41,
-
     backgroundColor: "#1976E9",
   },
-
   userInfo: {
     flex: 1,
-
     marginLeft: Spacing.lg,
   },
-
   name: {
     fontSize: FontSize.xl,
     fontWeight: FontWeight.bold,
   },
-
   username: {
     marginTop: Spacing.xs,
-
     fontSize: FontSize.md,
   },
-
   roleContainer: {
     alignSelf: "flex-start",
-
     flexDirection: "row",
     alignItems: "center",
-
     gap: Spacing.xs,
-
     marginTop: Spacing.sm,
-
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
-
     borderRadius: Radius.round,
-
     backgroundColor: "rgba(25,118,233,0.10)",
   },
-
   role: {
     color: "#1976E9",
-
     fontSize: FontSize.sm,
     fontWeight: FontWeight.medium,
   },
-
   menuCard: {
     borderRadius: Radius.lg,
-
     overflow: "hidden",
   },
-
   menuRow: {
     minHeight: 72,
-
     flexDirection: "row",
     alignItems: "center",
-
     paddingHorizontal: Spacing.lg,
   },
-
   iconBox: {
     width: 42,
     height: 42,
-
     alignItems: "center",
     justifyContent: "center",
-
     borderRadius: Radius.md,
   },
-
   menuContent: {
     flex: 1,
-
     marginLeft: Spacing.md,
-
     paddingVertical: Spacing.md,
   },
-
   menuTitle: {
     fontSize: FontSize.base,
     fontWeight: FontWeight.medium,
   },
-
   menuSubtitle: {
     marginTop: 3,
-
     fontSize: FontSize.sm,
   },
-
   divider: {
     height: StyleSheet.hairlineWidth,
-
     marginLeft: 70,
   },
-
   footer: {
     textAlign: "center",
-
     marginTop: Spacing.md,
-
     fontSize: FontSize.sm,
   },
-
   avatarButton: {
     position: "relative",
   },
-
   cameraBadge: {
     position: "absolute",
-
     right: 0,
     bottom: 0,
-
     width: 28,
     height: 28,
-
     alignItems: "center",
     justifyContent: "center",
-
     borderRadius: 14,
-
     backgroundColor: "#1976E9",
-
     borderWidth: 2,
     borderColor: "#FFFFFF",
   },
-
   toastContainer: {
     position: "absolute",
     top: 0,
     left: 16,
     right: 16,
-
     zIndex: 9999,
-
     elevation: 30,
   },
 });

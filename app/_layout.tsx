@@ -5,6 +5,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useLanguageStore } from "@/store/useLanguageStore";
 
 export default function RootLayout() {
   const { colors } = useAppTheme();
@@ -13,18 +14,27 @@ export default function RootLayout() {
 
   const initializeAuth = useAuthStore((state) => state.initializeAuth);
 
+  const initializeLanguages = useLanguageStore(
+    (state) => state.initializeLanguage,
+  );
+
+  const isLanguagesInitialized = useLanguageStore(
+    (state) => state.isInitialized,
+  );
+
   /**
    * Chạy 1 lần khi app khởi động.
    */
   useEffect(() => {
     initializeAuth();
-  }, [initializeAuth]);
+    initializeLanguages();
+  }, [initializeAuth, initializeLanguages]);
 
   /**
    * Trong lúc đang đọc token từ SecureStore
    * thì chưa render Login hoặc Tabs.
    */
-  if (!isInitialized) {
+  if (!isInitialized || !isLanguagesInitialized) {
     return (
       <SafeAreaProvider>
         <View
