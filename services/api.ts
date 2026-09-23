@@ -1,7 +1,9 @@
 import axios from "axios";
 import * as SecureStore from "expo-secure-store";
 
-const API_URL = process.env.PUBLIC_API_URL;
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
+
+console.log("Check api: ", API_URL);
 
 if (!API_URL) {
   throw new Error("lỗi url api");
