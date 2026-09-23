@@ -1,9 +1,15 @@
+import AppToast from "@/components/common/AppToast";
+import { Radius, Spacing } from "@/constants/Spacing";
+import { FontSize, FontWeight } from "@/constants/Typography";
+import { useAppTheme } from "@/hooks/useAppTheme";
+import { useAuthStore } from "@/store/useAuthStore";
+
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
+
 import {
   ActivityIndicator,
-  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -14,44 +20,95 @@ import {
   TextInput,
   View,
 } from "react-native";
+
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Radius, Spacing } from "@/constants/Spacing";
-import { FontSize, FontWeight } from "@/constants/Typography";
-import { useAppTheme } from "@/hooks/useAppTheme";
-import { useAuthStore } from "@/store/useAuthStore";
+type ToastType = "success" | "error";
+
+interface ToastState {
+  visible: boolean;
+  type: ToastType;
+  message: string;
+}
 
 export default function LoginScreen() {
   const { colors } = useAppTheme();
+
   const insets = useSafeAreaInsets();
 
   const login = useAuthStore((state) => state.login);
+
   const isLoading = useAuthStore((state) => state.isLoading);
 
   const [username, setUsername] = useState("");
+
   const [password, setPassword] = useState("");
+
   const [showPassword, setShowPassword] = useState(false);
 
+  const [isRedirecting, setIsRedirecting] = useState(false);
+
+  const [toast, setToast] = useState<ToastState>({
+    visible: false,
+    type: "success",
+    message: "",
+  });
+
+  const showToast = (type: ToastType, message: string) => {
+    setToast({
+      visible: true,
+      type,
+      message,
+    });
+  };
+
+  const hideToast = () => {
+    setToast((current) => ({
+      ...current,
+      visible: false,
+    }));
+  };
+
   const handleLogin = async () => {
-    if (!username.trim() || !password.trim()) {
-      Alert.alert("Thông báo", "Vui lòng nhập tên đăng nhập và mật khẩu.");
+    if (isLoading || isRedirecting) {
+      return;
+    }
+
+    hideToast();
+
+    const cleanUsername = username.trim();
+
+    if (!cleanUsername) {
+      showToast("error", "Vui lòng nhập tên đăng nhập.");
+
+      return;
+    }
+
+    if (!password.trim()) {
+      showToast("error", "Vui lòng nhập mật khẩu.");
 
       return;
     }
 
     try {
-      await login(username.trim(), password);
+      await login(cleanUsername, password);
 
-      router.replace("/(tabs)");
+      setIsRedirecting(true);
+
+      showToast("success", "Chào mừng bạn quay trở lại MID Office.");
+
+      setTimeout(() => {
+        router.replace("/(tabs)");
+      }, 1000);
     } catch (error: any) {
       console.log("LOGIN ERROR:", error);
 
-      Alert.alert(
-        "Đăng nhập thất bại",
+      const message =
         error?.response?.data?.message ??
-          error?.message ??
-          "Không thể đăng nhập. Vui lòng thử lại.",
-      );
+        error?.message ??
+        "Không thể đăng nhập. Vui lòng thử lại.";
+
+      showToast("error", message);
     }
   };
 
@@ -65,24 +122,40 @@ export default function LoginScreen() {
       ]}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
+      <View
+        pointerEvents="none"
+        style={[
+          styles.toastContainer,
+          {
+            top: insets.top + 8,
+          },
+        ]}
+      >
+        <AppToast
+          visible={toast.visible}
+          type={toast.type}
+          message={toast.message}
+        />
+      </View>
+
       <ScrollView
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.scrollContent,
           {
             paddingTop: insets.top + Spacing.xxl,
+
             paddingBottom: insets.bottom + Spacing.xxl,
           },
         ]}
       >
-        {/* Logo */}
         <Image
           source={require("../assets/images/logo.png")}
           style={styles.logo}
           resizeMode="contain"
         />
 
-        {/* Title */}
         <View style={styles.heading}>
           <Text
             style={[
@@ -107,7 +180,6 @@ export default function LoginScreen() {
           </Text>
         </View>
 
-        {/* Form */}
         <View style={styles.form}>
           <View>
             <Text
@@ -126,6 +198,7 @@ export default function LoginScreen() {
                 styles.inputContainer,
                 {
                   backgroundColor: colors.surface,
+
                   borderColor: colors.border,
                 },
               ]}
@@ -143,7 +216,7 @@ export default function LoginScreen() {
                 placeholderTextColor={colors.textSecondary}
                 autoCapitalize="none"
                 autoCorrect={false}
-                editable={!isLoading}
+                editable={!isLoading && !isRedirecting}
                 style={[
                   styles.input,
                   {
@@ -171,6 +244,7 @@ export default function LoginScreen() {
                 styles.inputContainer,
                 {
                   backgroundColor: colors.surface,
+
                   borderColor: colors.border,
                 },
               ]}
@@ -187,7 +261,11 @@ export default function LoginScreen() {
                 placeholder="Nhập mật khẩu"
                 placeholderTextColor={colors.textSecondary}
                 secureTextEntry={!showPassword}
-                editable={!isLoading}
+                editable={!isLoading && !isRedirecting}
+                autoCapitalize="none"
+                autoCorrect={false}
+                onSubmitEditing={handleLogin}
+                returnKeyType="done"
                 style={[
                   styles.input,
                   {
@@ -199,6 +277,7 @@ export default function LoginScreen() {
               <Pressable
                 onPress={() => setShowPassword((current) => !current)}
                 hitSlop={10}
+                disabled={isLoading || isRedirecting}
               >
                 <Ionicons
                   name={showPassword ? "eye-off-outline" : "eye-outline"}
@@ -211,16 +290,22 @@ export default function LoginScreen() {
 
           <Pressable
             onPress={handleLogin}
-            disabled={isLoading}
+            disabled={isLoading || isRedirecting}
             style={({ pressed }) => [
               styles.loginButton,
               {
-                opacity: pressed || isLoading ? 0.7 : 1,
+                opacity: pressed || isLoading || isRedirecting ? 0.7 : 1,
               },
             ]}
           >
-            {isLoading ? (
-              <ActivityIndicator color="#FFFFFF" />
+            {isLoading || isRedirecting ? (
+              <>
+                <ActivityIndicator color="#FFFFFF" size="small" />
+
+                <Text style={styles.loginButtonText}>
+                  {isRedirecting ? "Đang chuyển hướng..." : "Đang đăng nhập..."}
+                </Text>
+              </>
             ) : (
               <>
                 <Text style={styles.loginButtonText}>Đăng nhập</Text>
@@ -251,19 +336,24 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
+  toastContainer: {
+    position: "absolute",
+    left: 16,
+    right: 16,
+    zIndex: 9999,
+    elevation: 20,
+  },
+
   scrollContent: {
     flexGrow: 1,
     justifyContent: "center",
-
     paddingHorizontal: Spacing.xxl,
   },
 
   logo: {
     width: 170,
     height: 65,
-
     alignSelf: "center",
-
     marginBottom: Spacing.xxxl,
   },
 
@@ -278,7 +368,6 @@ const styles = StyleSheet.create({
 
   subtitle: {
     marginTop: Spacing.sm,
-
     fontSize: FontSize.base,
     lineHeight: 23,
   },
@@ -289,61 +378,46 @@ const styles = StyleSheet.create({
 
   label: {
     marginBottom: Spacing.sm,
-
     fontSize: FontSize.md,
     fontWeight: FontWeight.semiBold,
   },
 
   inputContainer: {
     height: 54,
-
     flexDirection: "row",
     alignItems: "center",
-
     paddingHorizontal: Spacing.lg,
-
     borderWidth: 1,
     borderRadius: Radius.md,
-
     gap: Spacing.md,
   },
 
   input: {
     flex: 1,
-
     height: "100%",
-
     fontSize: FontSize.base,
   },
 
   loginButton: {
     height: 54,
-
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-
     gap: Spacing.sm,
-
     marginTop: Spacing.sm,
-
     borderRadius: Radius.md,
-
     backgroundColor: "#1976E9",
   },
 
   loginButtonText: {
     color: "#FFFFFF",
-
     fontSize: FontSize.base,
     fontWeight: FontWeight.semiBold,
   },
 
   footer: {
     marginTop: Spacing.xxxl,
-
     textAlign: "center",
-
     fontSize: FontSize.sm,
   },
 });
