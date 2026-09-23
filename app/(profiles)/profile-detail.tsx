@@ -6,8 +6,10 @@ import { Colors } from "@/constants/Colors";
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { userServices } from "@/services/userServices";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useLanguageStore } from "@/store/useLanguageStore";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -40,14 +42,15 @@ interface EditFieldProps {
 
 export default function ProfileDetailScreen() {
   const { colors } = useAppTheme();
+  const { t } = useTranslation();
 
+  const language = useLanguageStore((state) => state.language);
   const user = useAuthStore((state) => state.user);
   const userDetail = useAuthStore((state) => state.userDetail);
   const refreshUserDetail = useAuthStore((state) => state.refreshUserDetail);
 
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -105,11 +108,13 @@ export default function ProfileDetailScreen() {
   }, []);
 
   const createdAt = userDetail?.created_at
-    ? new Date(userDetail.created_at).toLocaleDateString("vi-VN")
+    ? new Date(userDetail.created_at).toLocaleDateString(
+        language === "vi" ? "vi-VN" : "en-US",
+      )
     : "---";
 
   const accountStatus =
-    userDetail?.is_actived === 1 ? "Đang hoạt động" : "Không hoạt động";
+    userDetail?.is_actived === 1 ? t("profile.active") : t("profile.inactive");
 
   const resetForm = () => {
     setName(userDetail?.name ?? "");
@@ -130,29 +135,29 @@ export default function ProfileDetailScreen() {
 
   const validateForm = () => {
     if (!name.trim()) {
-      showToast("error", "Vui lòng nhập họ và tên.");
+      showToast("error", t("profile.fullNameRequired"));
       return false;
     }
 
     if (!username.trim()) {
-      showToast("error", "Vui lòng nhập tên đăng nhập.");
+      showToast("error", t("profile.usernameRequired"));
       return false;
     }
 
     if (!email.trim()) {
-      showToast("error", "Vui lòng nhập email.");
+      showToast("error", t("profile.emailRequired"));
       return false;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if (!emailRegex.test(email.trim())) {
-      showToast("error", "Email không hợp lệ.");
+      showToast("error", t("profile.invalidEmail"));
       return false;
     }
 
     if (!phone.trim()) {
-      showToast("error", "Vui lòng nhập số điện thoại.");
+      showToast("error", t("profile.phoneRequired"));
       return false;
     }
 
@@ -163,12 +168,12 @@ export default function ProfileDetailScreen() {
     if (isSaving || !validateForm()) return;
 
     if (!userId) {
-      showToast("error", "Không tìm thấy thông tin người dùng.");
+      showToast("error", t("profile.userIdNotFound"));
       return;
     }
 
     if (!userDetail) {
-      showToast("error", "Thông tin người dùng chưa được tải.");
+      showToast("error", t("profile.userNotLoaded"));
       return;
     }
 
@@ -186,27 +191,24 @@ export default function ProfileDetailScreen() {
         username: username.trim(),
       };
 
-      console.log("check payload:", payload);
-
       const response = await userServices.updateUser(userId, payload);
 
       if (!response.result) {
-        throw new Error(response.message || "Cập nhật thông tin thất bại.");
+        throw new Error(t("profile.updateFailed"));
       }
 
       await refreshUserDetail();
       setIsEditing(false);
-      showToast("success", response.message || "Cập nhật thành công.");
+      showToast("success", t("profile.updateSuccess"));
     } catch (error: any) {
-      console.log("lỗi update:", error);
-      console.log("lỗi dtata:", error?.response?.data);
+      console.log("UPDATE PROFILE ERROR:", error);
 
-      const message =
+      showToast(
+        "error",
         error?.response?.data?.message ??
-        error?.message ??
-        "Không thể cập nhật thông tin.";
-
-      showToast("error", message);
+          error?.message ??
+          t("profile.updateFailed"),
+      );
     } finally {
       setIsSaving(false);
     }
@@ -214,7 +216,7 @@ export default function ProfileDetailScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <SubHeader title="Thông tin tài khoản" />
+      <SubHeader title={t("profile.title")} />
 
       <KeyboardAvoidingView
         style={styles.flex}
@@ -229,7 +231,7 @@ export default function ProfileDetailScreen() {
             <Text
               style={[styles.sectionTitle, { color: colors.textSecondary }]}
             >
-              THÔNG TIN CÁ NHÂN
+              {t("profile.personalInformation")}
             </Text>
 
             <View style={[styles.card, { backgroundColor: colors.surface }]}>
@@ -237,10 +239,10 @@ export default function ProfileDetailScreen() {
                 <>
                   <EditField
                     icon="person-outline"
-                    label="Họ và tên"
+                    label={t("profile.fullName")}
                     value={name}
                     onChangeText={setName}
-                    placeholder="Nhập họ và tên"
+                    placeholder={t("profile.fullNamePlaceholder")}
                     colors={colors}
                   />
 
@@ -248,10 +250,10 @@ export default function ProfileDetailScreen() {
 
                   <EditField
                     icon="at-outline"
-                    label="Tên đăng nhập"
+                    label={t("profile.username")}
                     value={username}
                     onChangeText={setUsername}
-                    placeholder="Nhập tên đăng nhập"
+                    placeholder={t("profile.usernamePlaceholder")}
                     autoCapitalize="none"
                     colors={colors}
                   />
@@ -260,10 +262,10 @@ export default function ProfileDetailScreen() {
 
                   <EditField
                     icon="mail-outline"
-                    label="Email"
+                    label={t("profile.email")}
                     value={email}
                     onChangeText={setEmail}
-                    placeholder="Nhập email"
+                    placeholder={t("profile.emailPlaceholder")}
                     keyboardType="email-address"
                     autoCapitalize="none"
                     colors={colors}
@@ -273,10 +275,10 @@ export default function ProfileDetailScreen() {
 
                   <EditField
                     icon="call-outline"
-                    label="Số điện thoại"
+                    label={t("profile.phone")}
                     value={phone}
                     onChangeText={setPhone}
-                    placeholder="Nhập số điện thoại"
+                    placeholder={t("profile.phonePlaceholder")}
                     keyboardType="phone-pad"
                     colors={colors}
                   />
@@ -285,7 +287,7 @@ export default function ProfileDetailScreen() {
                 <>
                   <InfoRow
                     icon="person-outline"
-                    label="Họ và tên"
+                    label={t("profile.fullName")}
                     value={userDetail?.name ?? "---"}
                   />
 
@@ -293,7 +295,7 @@ export default function ProfileDetailScreen() {
 
                   <InfoRow
                     icon="at-outline"
-                    label="Tên đăng nhập"
+                    label={t("profile.username")}
                     value={userDetail?.username ?? "---"}
                   />
 
@@ -301,7 +303,7 @@ export default function ProfileDetailScreen() {
 
                   <InfoRow
                     icon="mail-outline"
-                    label="Email"
+                    label={t("profile.email")}
                     value={userInfo?.gmail ?? "---"}
                   />
 
@@ -309,7 +311,7 @@ export default function ProfileDetailScreen() {
 
                   <InfoRow
                     icon="call-outline"
-                    label="Số điện thoại"
+                    label={t("profile.phone")}
                     value={userInfo?.phone ?? "---"}
                   />
                 </>
@@ -321,13 +323,13 @@ export default function ProfileDetailScreen() {
             <Text
               style={[styles.sectionTitle, { color: colors.textSecondary }]}
             >
-              THÔNG TIN CÔNG VIỆC
+              {t("profile.workInformation")}
             </Text>
 
             <View style={[styles.card, { backgroundColor: colors.surface }]}>
               <InfoRow
                 icon="business-outline"
-                label="Phòng ban"
+                label={t("profile.department")}
                 value={userDetail?.department_name ?? "---"}
               />
 
@@ -335,7 +337,7 @@ export default function ProfileDetailScreen() {
 
               <InfoRow
                 icon="person-circle-outline"
-                label="Trưởng phòng"
+                label={t("profile.departmentHead")}
                 value={userDetail?.department_head ?? "---"}
               />
 
@@ -343,10 +345,10 @@ export default function ProfileDetailScreen() {
 
               <InfoRow
                 icon="calendar-outline"
-                label="Ngày phép còn lại"
+                label={t("profile.remainingDaysOff")}
                 value={
                   userDetail?.remaining_days_off !== undefined
-                    ? `${userDetail.remaining_days_off} ngày`
+                    ? `${userDetail.remaining_days_off} ${t("common.day")}`
                     : "---"
                 }
               />
@@ -357,13 +359,13 @@ export default function ProfileDetailScreen() {
             <Text
               style={[styles.sectionTitle, { color: colors.textSecondary }]}
             >
-              TÀI KHOẢN
+              {t("profile.accountInformation")}
             </Text>
 
             <View style={[styles.card, { backgroundColor: colors.surface }]}>
               <InfoRow
                 icon="checkmark-circle-outline"
-                label="Trạng thái"
+                label={t("profile.status")}
                 value={accountStatus}
                 valueColor={
                   userDetail?.is_actived === 1 ? Colors.success : Colors.danger
@@ -374,7 +376,7 @@ export default function ProfileDetailScreen() {
 
               <InfoRow
                 icon="calendar-clear-outline"
-                label="Ngày tạo"
+                label={t("profile.createdAt")}
                 value={createdAt}
               />
             </View>
@@ -389,7 +391,10 @@ export default function ProfileDetailScreen() {
               ]}
             >
               <Ionicons name="create-outline" size={20} color="#FFFFFF" />
-              <Text style={styles.editButtonText}>Chỉnh sửa thông tin</Text>
+
+              <Text style={styles.editButtonText}>
+                {t("profile.editInformation")}
+              </Text>
             </Pressable>
           ) : (
             <View style={styles.actionRow}>
@@ -406,7 +411,7 @@ export default function ProfileDetailScreen() {
                 ]}
               >
                 <Text style={[styles.cancelButtonText, { color: colors.text }]}>
-                  Hủy
+                  {t("common.cancel")}
                 </Text>
               </Pressable>
 
@@ -431,7 +436,7 @@ export default function ProfileDetailScreen() {
                 )}
 
                 <Text style={styles.saveButtonText}>
-                  {isSaving ? "Đang lưu..." : "Lưu thay đổi"}
+                  {isSaving ? t("profile.saving") : t("profile.saveChanges")}
                 </Text>
               </Pressable>
             </View>
@@ -464,6 +469,7 @@ function EditField({
     <View style={styles.editField}>
       <View style={styles.editFieldHeader}>
         <Ionicons name={icon} size={20} color={Colors.primary} />
+
         <Text style={[styles.editFieldLabel, { color: colors.textSecondary }]}>
           {label}
         </Text>

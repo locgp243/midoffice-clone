@@ -5,6 +5,7 @@ import { View } from "react-native";
 import AppHeader from "@/components/common/AppHeader";
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useTranslation } from "react-i18next";
 
 export default function TabsLayout() {
   const { colors } = useAppTheme();
@@ -21,6 +22,8 @@ export default function TabsLayout() {
   if (!isAuthenticated) {
     return <Redirect href="/login" />;
   }
+
+  const { t } = useTranslation();
 
   return (
     <View
@@ -60,7 +63,7 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="index"
           options={{
-            title: "Tổng quan",
+            title: t("tabs.home"),
 
             tabBarIcon: ({ color, size, focused }) => (
               <Ionicons
@@ -75,7 +78,7 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="tasks"
           options={{
-            title: "Nhiệm vụ",
+            title: t("tabs.tasks"),
 
             tabBarIcon: ({ color, size, focused }) => (
               <Ionicons
@@ -90,7 +93,7 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="menu"
           options={{
-            title: "Danh sách",
+            title: t("tabs.menu"),
 
             tabBarIcon: ({ color, size, focused }) => (
               <Ionicons
@@ -105,7 +108,7 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="notifications"
           options={{
-            title: "Thông báo",
+            title: t("tabs.notifications"),
 
             tabBarBadge: 3,
 
@@ -127,7 +130,7 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="profile"
           options={{
-            title: "Tôi",
+            title: t("tabs.profile"),
 
             tabBarIcon: ({ color, size, focused }) => (
               <Ionicons
