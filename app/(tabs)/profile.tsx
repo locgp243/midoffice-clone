@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import {
   Alert,
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,11 +9,15 @@ import {
   View,
 } from "react-native";
 
+import AppToast from "@/components/common/AppToast";
+import Avatar from "@/components/common/Avatar";
+import AvatarViewer from "@/components/common/AvatarViewer";
 import { Radius, Spacing } from "@/constants/Spacing";
 import { FontSize, FontWeight } from "@/constants/Typography";
 import { useAppTheme } from "@/hooks/useAppTheme";
+import { userServices } from "@/services/userServices";
 import { useAuthStore } from "@/store/useAuthStore";
-
+import { useState } from "react";
 type IconName = keyof typeof Ionicons.glyphMap;
 
 interface ProfileRowProps {
@@ -102,11 +105,28 @@ function ProfileRow({
 }
 
 export default function ProfileScreen() {
+  const [showAvatar, setShowAvatar] = useState(false);
+  const [localAvatar, setLocalAvatar] = useState<string | null>(null);
+
+  const [toast, setToast] = useState({
+    visible: false,
+    type: "success" as "success" | "error",
+    message: "",
+  });
+
   const { colors } = useAppTheme();
 
   const user = useAuthStore((state) => state.user);
 
   const userDetail = useAuthStore((state) => state.userDetail);
+
+  const avatar = localAvatar ?? userDetail?.avatar ?? user?.avatar ?? null;
+
+  const refreshUserDetail = useAuthStore((state) => state.refreshUserDetail);
+
+  const userId = user?.userId ?? userDetail?.id;
+
+  console.log("check avatar:", userDetail?.avatar);
 
   const logout = useAuthStore((state) => state.logout);
 
@@ -129,202 +149,254 @@ export default function ProfileScreen() {
     ]);
   };
 
+  const showToast = (type: "success" | "error", message: string) => {
+    setToast({
+      visible: true,
+      type,
+      message,
+    });
+
+    setTimeout(() => {
+      setToast((current) => ({
+        ...current,
+        visible: false,
+      }));
+    }, 1000);
+  };
+
   return (
-    <ScrollView
-      style={[
-        styles.screen,
-        {
-          backgroundColor: colors.background,
-        },
-      ]}
-      contentContainerStyle={styles.container}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* User information */}
-      <View
+    <>
+      <ScrollView
         style={[
-          styles.profileCard,
+          styles.screen,
           {
-            backgroundColor: colors.surface,
+            backgroundColor: colors.background,
           },
         ]}
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
       >
-        {user?.avatar ? (
-          <Image
-            source={{
-              uri: user.avatar,
+        {/* User information */}
+        <View
+          style={[
+            styles.profileCard,
+            {
+              backgroundColor: colors.surface,
+            },
+          ]}
+        >
+          <Pressable
+            onPress={() => {
+              setShowAvatar(true);
             }}
-            style={styles.avatar}
-          />
-        ) : (
-          <View style={styles.avatarPlaceholder}>
-            <Ionicons name="person" size={48} color="#FFFFFF" />
-          </View>
-        )}
-
-        <View style={styles.userInfo}>
-          <Text
-            style={[
-              styles.name,
-              {
-                color: colors.text,
-              },
-            ]}
+            style={styles.avatarButton}
           >
-            {userDetail?.name ?? "Người dùng"}
-          </Text>
+            <Avatar source={avatar} size={90} />
 
-          <Text
-            style={[
-              styles.username,
-              {
-                color: colors.textSecondary,
-              },
-            ]}
-          >
-            @{userDetail?.username ?? "---"}
-          </Text>
+            <View style={styles.cameraBadge}>
+              <Ionicons name="camera" size={15} color="#FFFFFF" />
+            </View>
+          </Pressable>
 
-          <View style={styles.roleContainer}>
-            <Ionicons name="briefcase-outline" size={16} color="#1976E9" />
+          <View style={styles.userInfo}>
+            <Text
+              style={[
+                styles.name,
+                {
+                  color: colors.text,
+                },
+              ]}
+            >
+              {userDetail?.name ?? "Người dùng"}
+            </Text>
 
-            <Text style={styles.role}>{user?.roleName ?? "Nhân viên"}</Text>
+            <Text
+              style={[
+                styles.username,
+                {
+                  color: colors.textSecondary,
+                },
+              ]}
+            >
+              @{userDetail?.username ?? "---"}
+            </Text>
+
+            <View style={styles.roleContainer}>
+              <Ionicons name="briefcase-outline" size={16} color="#1976E9" />
+
+              <Text style={styles.role}>
+                {userDetail?.department_name ?? "Nhân viên"}
+              </Text>
+            </View>
           </View>
         </View>
+
+        {/* Account */}
+        <View
+          style={[
+            styles.menuCard,
+            {
+              backgroundColor: colors.surface,
+            },
+          ]}
+        >
+          <ProfileRow
+            icon="person-outline"
+            title="Thông tin tài khoản"
+            onPress={() => {
+              router.push("/profile-detail");
+            }}
+          />
+
+          <View
+            style={[
+              styles.divider,
+              {
+                backgroundColor: colors.border,
+              },
+            ]}
+          />
+
+          <ProfileRow
+            icon="lock-closed-outline"
+            title="Bảo mật & Mật khẩu"
+            onPress={() => {
+              router.push("/(profiles)/change-password");
+            }}
+          />
+
+          <View
+            style={[
+              styles.divider,
+              {
+                backgroundColor: colors.border,
+              },
+            ]}
+          />
+
+          <ProfileRow
+            icon="notifications-outline"
+            title="Thông báo"
+            subtitle="Quản lý cài đặt thông báo"
+            onPress={() => {
+              router.push("/(tabs)/notifications");
+            }}
+          />
+
+          <View
+            style={[
+              styles.divider,
+              {
+                backgroundColor: colors.border,
+              },
+            ]}
+          />
+
+          <ProfileRow
+            icon="settings-outline"
+            title="Cài đặt"
+            onPress={() => {
+              // TODO: Settings
+            }}
+          />
+        </View>
+
+        {/* System */}
+        <View
+          style={[
+            styles.menuCard,
+            {
+              backgroundColor: colors.surface,
+            },
+          ]}
+        >
+          <ProfileRow
+            icon="information-circle-outline"
+            title="Phiên bản"
+            subtitle="1.0.0"
+            showArrow={false}
+          />
+
+          <View
+            style={[
+              styles.divider,
+              {
+                backgroundColor: colors.border,
+              },
+            ]}
+          />
+
+          <ProfileRow
+            icon="refresh-outline"
+            title="Khởi động lại ứng dụng"
+            onPress={() => {
+              // TODO
+            }}
+          />
+
+          <View
+            style={[
+              styles.divider,
+              {
+                backgroundColor: colors.border,
+              },
+            ]}
+          />
+
+          <ProfileRow
+            icon="log-out-outline"
+            title="Đăng xuất"
+            danger
+            showArrow={false}
+            onPress={handleLogout}
+          />
+        </View>
+
+        <Text
+          style={[
+            styles.footer,
+            {
+              color: colors.textSecondary,
+            },
+          ]}
+        >
+          MID Office
+        </Text>
+      </ScrollView>
+      <AvatarViewer
+        visible={showAvatar}
+        avatar={userDetail?.avatar ?? user?.avatar ?? null}
+        onClose={() => {
+          setShowAvatar(false);
+        }}
+        onConfirmImage={async (uri) => {
+          if (!userId) {
+            throw new Error("Không tìm thấy thông tin người dùng.");
+          }
+
+          const response = await userServices.uploadAvatar(userId, uri);
+
+          if (!response.result) {
+            throw new Error(
+              response.message.toString() || "Không thể cập nhật ảnh đại diện.",
+            );
+          }
+
+          // Lấy avatar mới từ server
+          await refreshUserDetail();
+
+          // Sau đó Toast thành công
+          showToast("success", response.message.toString());
+        }}
+      />
+      <View pointerEvents="none" style={styles.toastContainer}>
+        <AppToast
+          visible={toast.visible}
+          type={toast.type}
+          message={toast.message}
+        />
       </View>
-
-      {/* Account */}
-      <View
-        style={[
-          styles.menuCard,
-          {
-            backgroundColor: colors.surface,
-          },
-        ]}
-      >
-        <ProfileRow
-          icon="person-outline"
-          title="Thông tin tài khoản"
-          onPress={() => {
-            router.push("/profile-detail");
-          }}
-        />
-
-        <View
-          style={[
-            styles.divider,
-            {
-              backgroundColor: colors.border,
-            },
-          ]}
-        />
-
-        <ProfileRow
-          icon="lock-closed-outline"
-          title="Bảo mật & Mật khẩu"
-          onPress={() => {
-            router.push("/(profiles)/change-password");
-          }}
-        />
-
-        <View
-          style={[
-            styles.divider,
-            {
-              backgroundColor: colors.border,
-            },
-          ]}
-        />
-
-        <ProfileRow
-          icon="notifications-outline"
-          title="Thông báo"
-          subtitle="Quản lý cài đặt thông báo"
-          onPress={() => {
-            router.push("/(tabs)/notifications");
-          }}
-        />
-
-        <View
-          style={[
-            styles.divider,
-            {
-              backgroundColor: colors.border,
-            },
-          ]}
-        />
-
-        <ProfileRow
-          icon="settings-outline"
-          title="Cài đặt"
-          onPress={() => {
-            // TODO: Settings
-          }}
-        />
-      </View>
-
-      {/* System */}
-      <View
-        style={[
-          styles.menuCard,
-          {
-            backgroundColor: colors.surface,
-          },
-        ]}
-      >
-        <ProfileRow
-          icon="information-circle-outline"
-          title="Phiên bản"
-          subtitle="1.0.0"
-          showArrow={false}
-        />
-
-        <View
-          style={[
-            styles.divider,
-            {
-              backgroundColor: colors.border,
-            },
-          ]}
-        />
-
-        <ProfileRow
-          icon="refresh-outline"
-          title="Khởi động lại ứng dụng"
-          onPress={() => {
-            // TODO
-          }}
-        />
-
-        <View
-          style={[
-            styles.divider,
-            {
-              backgroundColor: colors.border,
-            },
-          ]}
-        />
-
-        <ProfileRow
-          icon="log-out-outline"
-          title="Đăng xuất"
-          danger
-          showArrow={false}
-          onPress={handleLogout}
-        />
-      </View>
-
-      <Text
-        style={[
-          styles.footer,
-          {
-            color: colors.textSecondary,
-          },
-        ]}
-      >
-        MID Office
-      </Text>
-    </ScrollView>
+    </>
   );
 }
 
@@ -467,5 +539,40 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
 
     fontSize: FontSize.sm,
+  },
+
+  avatarButton: {
+    position: "relative",
+  },
+
+  cameraBadge: {
+    position: "absolute",
+
+    right: 0,
+    bottom: 0,
+
+    width: 28,
+    height: 28,
+
+    alignItems: "center",
+    justifyContent: "center",
+
+    borderRadius: 14,
+
+    backgroundColor: "#1976E9",
+
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+  },
+
+  toastContainer: {
+    position: "absolute",
+    top: 0,
+    left: 16,
+    right: 16,
+
+    zIndex: 9999,
+
+    elevation: 30,
   },
 });
