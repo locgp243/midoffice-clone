@@ -30,8 +30,6 @@ export const useLanguageStore = create<LanguageState>((set) => ({
         isInitialized: true,
       });
     } catch (error) {
-      console.log("INITIALIZE LANGUAGE ERROR:", error);
-
       await i18n.changeLanguage("vi");
 
       set({
@@ -47,7 +45,6 @@ export const useLanguageStore = create<LanguageState>((set) => ({
       await i18n.changeLanguage(language);
       set({ language });
     } catch (error) {
-      console.log("CHANGE LANGUAGE ERROR:", error);
       throw error;
     }
   },
