@@ -1,9 +1,12 @@
 import { useAppTheme } from "@/hooks/useAppTheme";
+import { taskServices } from "@/services/taskServices";
+import { TaskApiItem } from "@/types/Task";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -16,95 +19,172 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-type TaskDetail = {
-  id: string;
-  title: string;
-  priority: number;
-  creator: string;
-  createdAt: string;
-  status: "pending" | "processing" | "completed";
-  statusLabel: string;
-  actionStatus: string;
-  content: string;
-  expectedStart: string;
-  note: string;
-  progress: number;
-  expense: number;
-  member: {
-    name: string;
-    isMe: boolean;
-    remaining: string;
-    status: string;
-    deadline: string;
-  };
-};
-
 const PRIMARY = "#1976E9";
 const STAR = "#FFC928";
+const SUCCESS = "#28A745";
+const SUCCESS_BACKGROUND = "#EAF7ED";
 const WARNING = "#F4A62A";
 const WARNING_BACKGROUND = "#FFF6E8";
 
-const mockTasks: TaskDetail[] = [
-  {
-    id: "1",
-    title: "180 ngày tập trung",
-    priority: 3,
-    creator: "Phan Công Hậu",
-    createdAt: "23:19:06 09/09/2026",
-    status: "pending",
-    statusLabel: "waitingConfirmation",
-    actionStatus: "waitingAcceptance",
-    content: "180 ngày tập trung",
-    expectedStart: "23:19:06 09/09/2026",
-    note: "",
-    progress: 100,
-    expense: 0,
-    member: {
-      name: "Phan Công Hậu",
-      isMe: true,
-      remaining: "166d 03:23:32",
-      status: "pending",
-      deadline: "17:00:00 09/03/2027",
-    },
-  },
-  {
-    id: "2",
-    title: "Hoàn thành Ứng dụng MID Office",
-    priority: 3,
-    creator: "Sàn Ứng Mọi",
-    createdAt: "11:10:07 14/04/2026",
-    status: "processing",
-    statusLabel: "processing",
-    actionStatus: "processing",
-    content: "Hoàn thành các chức năng của ứng dụng MID Office.",
-    expectedStart: "11:10:07 14/04/2026",
-    note: "",
-    progress: 70,
-    expense: 0,
-    member: {
-      name: "Phan Công Hậu",
-      isMe: true,
-      remaining: "20d 10:30:00",
-      status: "processing",
-      deadline: "23:00:00 18/06/2026",
-    },
-  },
-];
+const formatDateTime = (timestamp: number | null) => {
+  if (!timestamp) return "--";
+
+  return new Date(timestamp).toLocaleString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+};
+
+const getStatusText = (status: number) => {
+  if (status === 3) return "Hoàn thành";
+  if (status === 2) return "Đang chờ";
+  return `Status ${status}`;
+};
 
 export default function TaskDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const params = useLocalSearchParams<{
+    id: string;
+    creator?: string;
+  }>();
+
   const { colors, isDark } = useAppTheme();
   const { t } = useTranslation();
+
+  const [task, setTask] = useState<TaskApiItem | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [commentModalVisible, setCommentModalVisible] = useState(false);
   const [comment, setComment] = useState("");
 
-  const task = useMemo(() => {
-    return mockTasks.find((item) => item.id === id) ?? mockTasks[0];
-  }, [id]);
+  const taskId = Number(params.id);
+  const creatorId = Number(params.creator || 100000202);
+
+  const fetchTaskDetail = useCallback(async () => {
+    if (!taskId || Number.isNaN(taskId)) {
+      setLoading(false);
+      setTask(null);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const data = await taskServices.getDetail(taskId, creatorId);
+      setTask(data);
+    } catch (error) {
+      console.log("GET TASK DETAIL ERROR:", error);
+      setTask(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [taskId, creatorId]);
+
+  useEffect(() => {
+    fetchTaskDetail();
+  }, [fetchTaskDetail]);
+
+  const handleRefresh = useCallback(async () => {
+    if (!taskId || Number.isNaN(taskId)) return;
+
+    try {
+      setRefreshing(true);
+      const data = await taskServices.getDetail(taskId, creatorId);
+      setTask(data);
+    } catch (error) {
+      console.log("REFRESH TASK DETAIL ERROR:", error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [taskId, creatorId]);
 
   const closeCommentModal = () => {
     setCommentModalVisible(false);
   };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <SafeAreaView edges={["top"]} style={styles.headerSafeArea}>
+          <View style={styles.header}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={styles.headerButton}
+              onPress={() => router.back()}
+            >
+              <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {t("taskDetail.title")}
+            </Text>
+
+            <View style={styles.headerButton} />
+          </View>
+        </SafeAreaView>
+
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={PRIMARY} />
+        </View>
+      </View>
+    );
+  }
+
+  if (!task) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <SafeAreaView edges={["top"]} style={styles.headerSafeArea}>
+          <View style={styles.header}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={styles.headerButton}
+              onPress={() => router.back()}
+            >
+              <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {t("taskDetail.title")}
+            </Text>
+
+            <View style={styles.headerButton} />
+          </View>
+        </SafeAreaView>
+
+        <View style={styles.notFoundContainer}>
+          <Ionicons
+            name="document-text-outline"
+            size={48}
+            color={colors.textSecondary}
+          />
+
+          <Text
+            style={[
+              styles.notFoundText,
+              {
+                color: colors.textSecondary,
+              },
+            ]}
+          >
+            Không tìm thấy công việc
+          </Text>
+
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={styles.retryButton}
+            onPress={fetchTaskDetail}
+          >
+            <Ionicons name="refresh" size={18} color="#FFFFFF" />
+            <Text style={styles.retryButtonText}>Thử lại</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  const isCompleted = task.status === 3;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -122,8 +202,17 @@ export default function TaskDetailScreen() {
             {t("taskDetail.title")}
           </Text>
 
-          <TouchableOpacity activeOpacity={0.8} style={styles.headerButton}>
-            <Ionicons name="refresh" size={25} color="#FFFFFF" />
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={styles.headerButton}
+            onPress={handleRefresh}
+            disabled={refreshing}
+          >
+            {refreshing ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Ionicons name="refresh" size={25} color="#FFFFFF" />
+            )}
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -136,11 +225,13 @@ export default function TaskDetailScreen() {
           <View style={styles.taskHeader}>
             <View style={styles.taskTitleContainer}>
               <Text style={[styles.taskTitle, { color: colors.text }]}>
-                {task.title}
+                {task.name}
               </Text>
 
               <View style={styles.stars}>
-                {Array.from({ length: task.priority }).map((_, index) => (
+                {Array.from({
+                  length: Math.max(0, task.priority || 0),
+                }).map((_, index) => (
                   <Ionicons
                     key={index}
                     name="star-outline"
@@ -167,19 +258,55 @@ export default function TaskDetailScreen() {
               color={colors.textSecondary}
             />
 
-            <Text style={[styles.creatorText, { color: colors.textSecondary }]}>
-              {task.creator}
+            <Text
+              style={[
+                styles.creatorText,
+                {
+                  color: colors.textSecondary,
+                },
+              ]}
+            >
+              {task.creator_name || "--"}
             </Text>
           </View>
 
-          <Text style={[styles.createdText, { color: colors.textSecondary }]}>
-            {t("taskDetail.createdAt")} {task.createdAt}
+          <Text
+            style={[
+              styles.createdText,
+              {
+                color: colors.textSecondary,
+              },
+            ]}
+          >
+            {t("taskDetail.createdAt")} {formatDateTime(task.created_at)}
           </Text>
 
           <View style={styles.badges}>
-            <View style={styles.warningBadge}>
-              <Text style={styles.warningBadgeText}>
-                {t(`taskDetail.${task.statusLabel}`)}
+            <View
+              style={[
+                styles.statusBadge,
+                isCompleted
+                  ? {
+                      backgroundColor: isDark
+                        ? "rgba(40,167,69,0.18)"
+                        : SUCCESS_BACKGROUND,
+                    }
+                  : {
+                      backgroundColor: isDark
+                        ? "rgba(244,166,42,0.18)"
+                        : WARNING_BACKGROUND,
+                    },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.statusBadgeText,
+                  {
+                    color: isCompleted ? SUCCESS : WARNING,
+                  },
+                ]}
+              >
+                {getStatusText(task.status)}
               </Text>
             </View>
 
@@ -192,30 +319,67 @@ export default function TaskDetailScreen() {
               ]}
             >
               <Text style={styles.primaryBadgeText}>
-                {t(`taskDetail.${task.actionStatus}`)}
+                {task.type_task_name || "--"}
               </Text>
             </View>
           </View>
 
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <View
+            style={[
+              styles.divider,
+              {
+                backgroundColor: colors.border,
+              },
+            ]}
+          />
 
           <DetailField
             label={t("taskDetail.content")}
-            value={task.content}
+            value={task.name || "--"}
             textColor={colors.text}
             secondaryColor={colors.textSecondary}
           />
 
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <View
+            style={[
+              styles.divider,
+              {
+                backgroundColor: colors.border,
+              },
+            ]}
+          />
 
           <DetailField
             label={t("taskDetail.expectedStart")}
-            value={task.expectedStart}
+            value={formatDateTime(task.start_time_location)}
             textColor={colors.text}
             secondaryColor={colors.textSecondary}
           />
 
-          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <View
+            style={[
+              styles.divider,
+              {
+                backgroundColor: colors.border,
+              },
+            ]}
+          />
+
+          <DetailField
+            label={t("taskDetail.deadline")}
+            value={formatDateTime(task.expired_on)}
+            textColor={colors.text}
+            secondaryColor={colors.textSecondary}
+          />
+
+          <View
+            style={[
+              styles.divider,
+              {
+                backgroundColor: colors.border,
+              },
+            ]}
+          />
 
           <DetailField
             label={t("taskDetail.note")}
@@ -225,7 +389,14 @@ export default function TaskDetailScreen() {
           />
 
           <View style={styles.imageSection}>
-            <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+            <Text
+              style={[
+                styles.fieldLabel,
+                {
+                  color: colors.textSecondary,
+                },
+              ]}
+            >
               {t("taskDetail.images")}
             </Text>
 
@@ -247,10 +418,7 @@ export default function TaskDetailScreen() {
           </View>
         </View>
 
-        <SectionCard
-          title={`${t("taskDetail.progress")} (${task.progress}%)`}
-          colors={colors}
-        >
+        <SectionCard title={`${t("taskDetail.progress")} (0%)`} colors={colors}>
           <EmptySection
             icon="git-branch-outline"
             text={t("taskDetail.noTimeline")}
@@ -258,10 +426,7 @@ export default function TaskDetailScreen() {
           />
         </SectionCard>
 
-        <SectionCard
-          title={`${t("taskDetail.expense")} (${task.expense.toLocaleString()}đ)`}
-          colors={colors}
-        >
+        <SectionCard title={`${t("taskDetail.expense")} (0đ)`} colors={colors}>
           <EmptySection
             icon="wallet-outline"
             text={t("taskDetail.noExpense")}
@@ -299,18 +464,46 @@ export default function TaskDetailScreen() {
 
               <View style={styles.memberInfo}>
                 <Text style={[styles.memberName, { color: colors.text }]}>
-                  {task.member.name}
-                  {task.member.isMe ? ` (${t("taskDetail.you")})` : ""}
+                  {task.username || "--"}
                 </Text>
 
-                <Text style={styles.remainingText}>
-                  {task.member.remaining}
+                <Text
+                  style={[
+                    styles.remainingText,
+                    {
+                      color: isCompleted ? SUCCESS : PRIMARY,
+                    },
+                  ]}
+                >
+                  {getStatusText(task.status)}
                 </Text>
               </View>
 
-              <View style={styles.warningBadge}>
-                <Text style={styles.warningBadgeText}>
-                  {t(`tasks.${task.member.status}`)}
+              <View
+                style={[
+                  styles.statusBadge,
+                  isCompleted
+                    ? {
+                        backgroundColor: isDark
+                          ? "rgba(40,167,69,0.18)"
+                          : SUCCESS_BACKGROUND,
+                      }
+                    : {
+                        backgroundColor: isDark
+                          ? "rgba(244,166,42,0.18)"
+                          : WARNING_BACKGROUND,
+                      },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.statusBadgeText,
+                    {
+                      color: isCompleted ? SUCCESS : WARNING,
+                    },
+                  ]}
+                >
+                  {getStatusText(task.status)}
                 </Text>
               </View>
             </View>
@@ -323,39 +516,58 @@ export default function TaskDetailScreen() {
               />
 
               <Text
-                style={[styles.deadlineText, { color: colors.textSecondary }]}
+                style={[
+                  styles.deadlineText,
+                  {
+                    color: colors.textSecondary,
+                  },
+                ]}
               >
-                {t("taskDetail.deadline")}: {task.member.deadline}
+                {t("taskDetail.deadline")}: {formatDateTime(task.expired_on)}
               </Text>
             </View>
           </View>
         </SectionCard>
       </ScrollView>
 
-      <View
-        style={[
-          styles.bottomActions,
-          {
-            backgroundColor: colors.surface,
-            borderTopColor: colors.border,
-          },
-        ]}
-      >
-        <TouchableOpacity
-          activeOpacity={0.8}
-          style={[styles.rejectButton, { borderColor: colors.border }]}
+      {!isCompleted && (
+        <View
+          style={[
+            styles.bottomActions,
+            {
+              backgroundColor: colors.surface,
+              borderTopColor: colors.border,
+            },
+          ]}
         >
-          <Text style={[styles.rejectText, { color: colors.text }]}>
-            {t("taskDetail.reject")}
-          </Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={[
+              styles.rejectButton,
+              {
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.rejectText,
+                {
+                  color: colors.text,
+                },
+              ]}
+            >
+              {t("taskDetail.reject")}
+            </Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity activeOpacity={0.8} style={styles.confirmButton}>
-          <Text style={styles.confirmText}>
-            {t("taskDetail.confirmProcessing")}
-          </Text>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity activeOpacity={0.8} style={styles.confirmButton}>
+            <Text style={styles.confirmText}>
+              {t("taskDetail.confirmProcessing")}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <Modal
         visible={commentModalVisible}
@@ -384,7 +596,14 @@ export default function TaskDetailScreen() {
             ]}
           >
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>
+              <Text
+                style={[
+                  styles.modalTitle,
+                  {
+                    color: colors.text,
+                  },
+                ]}
+              >
                 {t("taskDetail.addComment")}
               </Text>
 
@@ -398,7 +617,12 @@ export default function TaskDetailScreen() {
             </View>
 
             <View
-              style={[styles.modalDivider, { backgroundColor: colors.border }]}
+              style={[
+                styles.modalDivider,
+                {
+                  backgroundColor: colors.border,
+                },
+              ]}
             />
 
             <View style={styles.commentInputRow}>
@@ -438,12 +662,19 @@ export default function TaskDetailScreen() {
                 activeOpacity={0.8}
                 style={[
                   styles.cancelCommentButton,
-                  { borderColor: colors.border },
+                  {
+                    borderColor: colors.border,
+                  },
                 ]}
                 onPress={closeCommentModal}
               >
                 <Text
-                  style={[styles.cancelCommentText, { color: colors.text }]}
+                  style={[
+                    styles.cancelCommentText,
+                    {
+                      color: colors.text,
+                    },
+                  ]}
                 >
                   {t("common.cancel")}
                 </Text>
@@ -529,7 +760,12 @@ function SectionCard({
       </View>
 
       <View
-        style={[styles.sectionDivider, { backgroundColor: colors.border }]}
+        style={[
+          styles.sectionDivider,
+          {
+            backgroundColor: colors.border,
+          },
+        ]}
       />
 
       {children}
@@ -556,6 +792,35 @@ function EmptySection({ icon, text, color }: EmptySectionProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  notFoundContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+  },
+  notFoundText: {
+    fontSize: 15,
+  },
+  retryButton: {
+    height: 42,
+    paddingHorizontal: 18,
+    borderRadius: 8,
+    backgroundColor: PRIMARY,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+  },
+  retryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
   },
   headerSafeArea: {
     backgroundColor: PRIMARY,
@@ -630,14 +895,12 @@ const styles = StyleSheet.create({
     gap: 7,
     marginTop: 14,
   },
-  warningBadge: {
-    backgroundColor: WARNING_BACKGROUND,
+  statusBadge: {
     paddingHorizontal: 11,
     paddingVertical: 7,
     borderRadius: 4,
   },
-  warningBadgeText: {
-    color: WARNING,
+  statusBadgeText: {
     fontSize: 13,
     fontWeight: "600",
   },
@@ -738,7 +1001,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   remainingText: {
-    color: PRIMARY,
     fontSize: 13,
     fontWeight: "600",
   },
@@ -807,7 +1069,14 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     padding: 16,
-    boxShadow: "rgba(0, 0, 0, 0.2) 0px 4px 16px",
+    shadowColor: "#000000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
   },
   modalHeader: {
     flexDirection: "row",

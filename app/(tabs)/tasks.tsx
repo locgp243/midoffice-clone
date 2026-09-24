@@ -1,11 +1,12 @@
 import { useAppTheme } from "@/hooks/useAppTheme";
+import { taskServices } from "@/services/taskServices";
+import { TaskApiItem } from "@/types/Task";
 import { Ionicons } from "@expo/vector-icons";
-import { useCallback, useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
-
 import { router } from "expo-router";
-
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
+  ActivityIndicator,
   FlatList,
   Pressable,
   ScrollView,
@@ -15,28 +16,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
-type TaskStatus =
-  | "pending"
-  | "processing"
-  | "overdue"
-  | "waitingApproval"
-  | "completed";
-
-type Task = {
-  id: string;
-  title: string;
-  priority: number;
-  creator: string;
-  assignee: string;
-  createdAt: string;
-  deadline: string;
-  completedAt?: string;
-  type: string;
-  status: TaskStatus;
-  group: TopTab;
-  remaining?: string;
-};
 
 type TopTab = "mine" | "created" | "customerRequest" | "staff";
 
@@ -50,131 +29,17 @@ type TaskFilter =
 
 const PRIMARY = "#1976E9";
 const STAR = "#FFC928";
-const WARNING = "#F4A62A";
-const WARNING_BACKGROUND = "#FFF6E8";
-const APPROVAL = "#A96EF4";
-const APPROVAL_BACKGROUND = "#F5EEFF";
-const SUCCESS = "#4DBD65";
-const SUCCESS_BACKGROUND = "#EAF8EC";
 const PRIMARY_BACKGROUND = "#E8F2FF";
 
-const tasks: Task[] = [
-  {
-    id: "1",
-    title: "180 ngày tập trung",
-    priority: 3,
-    creator: "Phan Công Hậu",
-    assignee: "Phan Công Hậu",
-    createdAt: "23:19:06 09/09/2026",
-    deadline: "17:00:00 09/03/2027",
-    type: "internalRequest",
-    status: "pending",
-    group: "mine",
-    remaining: "169d 06:46:04",
-  },
-  {
-    id: "2",
-    title: "Hoàn thành Ứng dụng MID Office",
-    priority: 3,
-    creator: "Sàn Ứng Mọi",
-    assignee: "Phan Công Hậu",
-    createdAt: "11:10:07 14/04/2026",
-    deadline: "23:00:00 18/06/2026",
-    completedAt: "11:34:45 18/06/2026",
-    type: "internalRequest",
-    status: "waitingApproval",
-    group: "mine",
-  },
-  {
-    id: "3",
-    title: "Liên kết App Gps với App mPay",
-    priority: 2,
-    creator: "Trần Viễn Chinh",
-    assignee: "Phan Công Hậu",
-    createdAt: "22:05:19 06/03/2026",
-    deadline: "21:04:00 07/03/2026",
-    completedAt: "11:33:03 07/03/2026",
-    type: "internalRequest",
-    status: "completed",
-    group: "mine",
-  },
-  {
-    id: "4",
-    title: "Kiểm tra báo cáo doanh thu tháng",
-    priority: 2,
-    creator: "Phan Công Hậu",
-    assignee: "Nguyễn Văn An",
-    createdAt: "08:30:00 20/09/2026",
-    deadline: "17:00:00 25/09/2026",
-    type: "internalRequest",
-    status: "processing",
-    group: "created",
-    remaining: "3d 08:30:00",
-  },
-  {
-    id: "5",
-    title: "Cập nhật danh sách khách hàng",
-    priority: 3,
-    creator: "Phan Công Hậu",
-    assignee: "Trần Minh Khoa",
-    createdAt: "09:15:00 18/09/2026",
-    deadline: "17:00:00 22/09/2026",
-    type: "internalRequest",
-    status: "overdue",
-    group: "created",
-  },
-  {
-    id: "6",
-    title: "Hỗ trợ kiểm tra hệ thống khách hàng",
-    priority: 3,
-    creator: "Công ty ABC",
-    assignee: "Phan Công Hậu",
-    createdAt: "10:20:00 21/09/2026",
-    deadline: "17:00:00 26/09/2026",
-    type: "customerSupportRequest",
-    status: "pending",
-    group: "customerRequest",
-    remaining: "4d 06:40:00",
-  },
-  {
-    id: "7",
-    title: "Kiểm tra kết nối camera khách hàng",
-    priority: 2,
-    creator: "Công ty XYZ",
-    assignee: "Phan Công Hậu",
-    createdAt: "13:40:00 20/09/2026",
-    deadline: "17:00:00 24/09/2026",
-    type: "customerSupportRequest",
-    status: "processing",
-    group: "customerRequest",
-    remaining: "2d 03:20:00",
-  },
-  {
-    id: "8",
-    title: "Hoàn thành báo cáo công việc tuần",
-    priority: 2,
-    creator: "Nguyễn Văn An",
-    assignee: "Nguyễn Văn An",
-    createdAt: "08:00:00 21/09/2026",
-    deadline: "17:00:00 23/09/2026",
-    type: "internalRequest",
-    status: "processing",
-    group: "staff",
-    remaining: "1d 09:00:00",
-  },
-  {
-    id: "9",
-    title: "Kiểm tra thiết bị tại văn phòng",
-    priority: 3,
-    creator: "Trần Minh Khoa",
-    assignee: "Trần Minh Khoa",
-    createdAt: "09:00:00 19/09/2026",
-    deadline: "17:00:00 22/09/2026",
-    type: "internalRequest",
-    status: "completed",
-    group: "staff",
-  },
-];
+const USER_ID = 100000202;
+const USER_NAME = "Phạm Gia Lộc";
+
+const STATUS_MAP: Record<Exclude<TaskFilter, "all" | "overdue">, number[]> = {
+  pending: [2],
+  processing: [],
+  waitingApproval: [],
+  completed: [3],
+};
 
 const topTabs: TopTab[] = ["mine", "created", "customerRequest", "staff"];
 
@@ -210,6 +75,36 @@ const floatingActions = [
   },
 ];
 
+const formatDateTime = (timestamp: number | null) => {
+  if (!timestamp) return "--";
+
+  return new Date(timestamp).toLocaleString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+};
+
+const normalizeText = (value?: string | null) => {
+  return value?.trim().toLocaleLowerCase("vi-VN") ?? "";
+};
+
+const isOverdue = (task: TaskApiItem) => {
+  if (!task.expired_on) return false;
+  return task.expired_on < Date.now();
+};
+
+const getStatusLabel = (status: number) => {
+  if (STATUS_MAP.pending.includes(status)) return "Đang chờ";
+  if (STATUS_MAP.processing.includes(status)) return "Đang xử lý";
+  if (STATUS_MAP.waitingApproval.includes(status)) return "Chờ duyệt";
+  if (STATUS_MAP.completed.includes(status)) return "Hoàn thành";
+  return `Status ${status}`;
+};
+
 export default function TasksScreen() {
   const { colors, isDark } = useAppTheme();
   const { t } = useTranslation();
@@ -218,66 +113,112 @@ export default function TasksScreen() {
   const [activeFilter, setActiveFilter] = useState<TaskFilter>("all");
   const [search, setSearch] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [tasks, setTasks] = useState<TaskApiItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const filteredTasks = useMemo(() => {
-    const keyword = search.trim().toLocaleLowerCase();
+  const fetchTasks = useCallback(async () => {
+    try {
+      setLoading(true);
 
-    return tasks.filter((task) => {
-      if (task.group !== activeTab) {
-        return false;
-      }
+      const response = await taskServices.getRows({
+        web: "yes",
+        offset: 0,
+        limit: 20,
+        creator: USER_ID,
+      });
 
-      const matchesSearch =
-        !keyword ||
-        task.title.toLocaleLowerCase().includes(keyword) ||
-        task.creator.toLocaleLowerCase().includes(keyword) ||
-        task.assignee.toLocaleLowerCase().includes(keyword);
-
-      if (!matchesSearch) {
-        return false;
-      }
-
-      if (activeFilter === "all") {
-        return true;
-      }
-
-      return task.status === activeFilter;
-    });
-  }, [activeTab, activeFilter, search]);
-
-  const getStatusStyle = useCallback((status: TaskStatus) => {
-    switch (status) {
-      case "pending":
-        return {
-          backgroundColor: WARNING_BACKGROUND,
-          color: WARNING,
-        };
-      case "waitingApproval":
-        return {
-          backgroundColor: APPROVAL_BACKGROUND,
-          color: APPROVAL,
-        };
-      case "completed":
-        return {
-          backgroundColor: SUCCESS_BACKGROUND,
-          color: SUCCESS,
-        };
+      setTasks(response.data ?? []);
+    } catch (error) {
+      console.log("GET TASKS ERROR:", error);
+      setTasks([]);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
-  const getStatusLabel = useCallback(
-    (status: TaskStatus) => {
-      switch (status) {
-        case "pending":
-          return t("tasks.pending");
-        case "waitingApproval":
-          return t("tasks.waitingApproval");
-        case "completed":
-          return t("tasks.completed");
+  useEffect(() => {
+    fetchTasks();
+  }, [fetchTasks]);
+
+  const handleRefresh = useCallback(async () => {
+    try {
+      setRefreshing(true);
+
+      const response = await taskServices.getRows({
+        web: "yes",
+        offset: 0,
+        limit: 20,
+        creator: USER_ID,
+      });
+
+      setTasks(response.data ?? []);
+    } catch (error) {
+      console.log("REFRESH TASKS ERROR:", error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+
+  const filteredTasks = useMemo(() => {
+    const keyword = normalizeText(search);
+    const currentUserName = normalizeText(USER_NAME);
+
+    return tasks.filter((task) => {
+      let matchesTab = false;
+
+      if (activeTab === "mine") {
+        matchesTab = task.type_task_id === 1;
       }
-    },
-    [t],
-  );
+
+      if (activeTab === "created") {
+        matchesTab = normalizeText(task.creator_name) === currentUserName;
+      }
+
+      if (activeTab === "customerRequest") {
+        matchesTab = task.type_task_id === 2;
+      }
+
+      if (activeTab === "staff") {
+        matchesTab = task.type_task_id !== 1 && task.type_task_id !== 2;
+      }
+
+      if (!matchesTab) return false;
+
+      let matchesStatus = true;
+
+      if (activeFilter === "pending") {
+        matchesStatus = STATUS_MAP.pending.includes(task.status);
+      }
+
+      if (activeFilter === "processing") {
+        matchesStatus = STATUS_MAP.processing.includes(task.status);
+      }
+
+      if (activeFilter === "waitingApproval") {
+        matchesStatus = STATUS_MAP.waitingApproval.includes(task.status);
+      }
+
+      if (activeFilter === "completed") {
+        matchesStatus = STATUS_MAP.completed.includes(task.status);
+      }
+
+      if (activeFilter === "overdue") {
+        matchesStatus = isOverdue(task);
+      }
+
+      if (!matchesStatus) return false;
+
+      if (!keyword) return true;
+
+      return (
+        normalizeText(task.name).includes(keyword) ||
+        normalizeText(task.creator_name).includes(keyword) ||
+        normalizeText(task.username).includes(keyword) ||
+        normalizeText(task.type_task_name).includes(keyword)
+      );
+    });
+  }, [tasks, activeTab, activeFilter, search]);
 
   const getTabLabel = useCallback(
     (tab: TopTab) => {
@@ -315,14 +256,73 @@ export default function TasksScreen() {
     [t],
   );
 
+  const getStatusStyle = useCallback(
+    (task: TaskApiItem) => {
+      if (isOverdue(task)) {
+        return {
+          backgroundColor: isDark ? "rgba(220,53,69,0.18)" : "#FDEBEC",
+          textColor: "#DC3545",
+          label: t("tasks.overdue"),
+        };
+      }
+
+      if (STATUS_MAP.completed.includes(task.status)) {
+        return {
+          backgroundColor: isDark ? "rgba(40,167,69,0.18)" : "#EAF7ED",
+          textColor: "#28A745",
+          label: t("tasks.completed"),
+        };
+      }
+
+      if (STATUS_MAP.processing.includes(task.status)) {
+        return {
+          backgroundColor: isDark ? "rgba(25,118,233,0.18)" : "#E8F2FF",
+          textColor: PRIMARY,
+          label: t("tasks.processing"),
+        };
+      }
+
+      if (STATUS_MAP.waitingApproval.includes(task.status)) {
+        return {
+          backgroundColor: isDark ? "rgba(255,193,7,0.18)" : "#FFF7DB",
+          textColor: "#D99A00",
+          label: t("tasks.waitingApproval"),
+        };
+      }
+
+      if (STATUS_MAP.pending.includes(task.status)) {
+        return {
+          backgroundColor: isDark ? "rgba(244,166,42,0.18)" : "#FFF6E8",
+          textColor: "#F4A62A",
+          label: t("tasks.pending"),
+        };
+      }
+
+      return {
+        backgroundColor: isDark ? "rgba(25,118,233,0.18)" : PRIMARY_BACKGROUND,
+        textColor: PRIMARY,
+        label: getStatusLabel(task.status),
+      };
+    },
+    [isDark, t],
+  );
+
   const renderTask = useCallback(
-    ({ item }: { item: Task }) => {
-      const statusStyle = getStatusStyle(item.status);
+    ({ item }: { item: TaskApiItem }) => {
+      const statusStyle = getStatusStyle(item);
 
       return (
         <TouchableOpacity
           activeOpacity={0.85}
-          onPress={() => router.push("/(tasks)/task-detail")}
+          onPress={() =>
+            router.push({
+              pathname: "/(tasks)/[id]",
+              params: {
+                id: item.task_id.toString(),
+                creator: item.creator.toString(),
+              },
+            })
+          }
           style={[
             styles.taskCard,
             {
@@ -336,22 +336,36 @@ export default function TasksScreen() {
               style={[styles.taskTitle, { color: colors.text }]}
               numberOfLines={2}
             >
-              {item.title}
+              {item.name}
             </Text>
 
             <View
-              style={[styles.statusBadge, { backgroundColor: colors.surface }]}
+              style={[
+                styles.statusBadge,
+                {
+                  backgroundColor: statusStyle.backgroundColor,
+                },
+              ]}
             >
-              <Text style={[styles.statusText, { color: colors.text }]}>
-                {getStatusLabel(item.status)}
+              <Text
+                style={[
+                  styles.statusText,
+                  {
+                    color: statusStyle.textColor,
+                  },
+                ]}
+              >
+                {statusStyle.label}
               </Text>
             </View>
           </View>
 
           <View style={styles.stars}>
-            {Array.from({ length: item.priority }).map((_, index) => (
+            {Array.from({
+              length: Math.max(0, item.priority ?? 0),
+            }).map((_, index) => (
               <Ionicons
-                key={`${item.id}-star-${index}`}
+                key={`${item.task_id}-star-${index}`}
                 name="star-outline"
                 size={23}
                 color={STAR}
@@ -361,10 +375,15 @@ export default function TasksScreen() {
 
           <View style={styles.peopleRow}>
             <Text
-              style={[styles.peopleText, { color: colors.textSecondary }]}
+              style={[
+                styles.peopleText,
+                {
+                  color: colors.textSecondary,
+                },
+              ]}
               numberOfLines={1}
             >
-              {item.creator}
+              {item.creator_name || "--"}
             </Text>
 
             <Ionicons
@@ -374,10 +393,15 @@ export default function TasksScreen() {
             />
 
             <Text
-              style={[styles.peopleText, { color: colors.textSecondary }]}
+              style={[
+                styles.peopleText,
+                {
+                  color: colors.textSecondary,
+                },
+              ]}
               numberOfLines={1}
             >
-              {item.assignee}
+              {item.username || "--"}
             </Text>
           </View>
 
@@ -388,8 +412,16 @@ export default function TasksScreen() {
                 size={20}
                 color={colors.textSecondary}
               />
-              <Text style={[styles.timeText, { color: colors.textSecondary }]}>
-                {item.createdAt}
+
+              <Text
+                style={[
+                  styles.timeText,
+                  {
+                    color: colors.textSecondary,
+                  },
+                ]}
+              >
+                {formatDateTime(item.created_at)}
               </Text>
             </View>
 
@@ -397,24 +429,38 @@ export default function TasksScreen() {
               <Ionicons
                 name="time-outline"
                 size={20}
-                color={colors.textSecondary}
+                color={isOverdue(item) ? "#DC3545" : colors.textSecondary}
               />
-              <Text style={[styles.timeText, { color: colors.textSecondary }]}>
-                {item.deadline}
+
+              <Text
+                style={[
+                  styles.timeText,
+                  {
+                    color: isOverdue(item) ? "#DC3545" : colors.textSecondary,
+                  },
+                ]}
+              >
+                {formatDateTime(item.expired_on)}
               </Text>
             </View>
 
-            {item.completedAt && (
+            {item.updated_at && (
               <View style={styles.timeRow}>
                 <Ionicons
                   name="pencil-outline"
                   size={20}
                   color={colors.textSecondary}
                 />
+
                 <Text
-                  style={[styles.timeText, { color: colors.textSecondary }]}
+                  style={[
+                    styles.timeText,
+                    {
+                      color: colors.textSecondary,
+                    },
+                  ]}
                 >
-                  {item.completedAt}
+                  {formatDateTime(item.updated_at)}
                 </Text>
               </View>
             )}
@@ -431,23 +477,8 @@ export default function TasksScreen() {
                 },
               ]}
             >
-              <Text style={styles.typeText}>{t(`tasks.${item.type}`)}</Text>
+              <Text style={styles.typeText}>{item.type_task_name || "--"}</Text>
             </View>
-
-            {item.remaining && (
-              <View
-                style={[
-                  styles.remainingBadge,
-                  {
-                    backgroundColor: isDark
-                      ? "rgba(25,118,233,0.18)"
-                      : PRIMARY_BACKGROUND,
-                  },
-                ]}
-              >
-                <Text style={styles.remainingText}>{item.remaining}</Text>
-              </View>
-            )}
           </View>
         </TouchableOpacity>
       );
@@ -457,15 +488,25 @@ export default function TasksScreen() {
       colors.surface,
       colors.text,
       colors.textSecondary,
-      getStatusLabel,
       getStatusStyle,
       isDark,
-      t,
     ],
   );
 
+  const handleChangeTab = (tab: TopTab) => {
+    setActiveTab(tab);
+    setActiveFilter("all");
+  };
+
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.background,
+        },
+      ]}
+    >
       <View
         style={[
           styles.tabs,
@@ -483,7 +524,7 @@ export default function TasksScreen() {
               key={tab}
               style={styles.tab}
               activeOpacity={0.8}
-              onPress={() => setActiveTab(tab)}
+              onPress={() => handleChangeTab(tab)}
             >
               <Text
                 style={[
@@ -555,7 +596,12 @@ export default function TasksScreen() {
               onChangeText={setSearch}
               placeholder={t("tasks.searchPlaceholder")}
               placeholderTextColor={colors.textSecondary}
-              style={[styles.searchInput, { color: colors.text }]}
+              style={[
+                styles.searchInput,
+                {
+                  color: colors.text,
+                },
+              ]}
             />
 
             <Ionicons
@@ -579,22 +625,44 @@ export default function TasksScreen() {
           </TouchableOpacity>
         </View>
 
-        <FlatList
-          data={filteredTasks}
-          keyExtractor={(item) => item.id}
-          renderItem={renderTask}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={[
-            styles.listContent,
-            filteredTasks.length === 0 && styles.emptyListContent,
-          ]}
-          ListEmptyComponent={
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              {t("tasks.empty")}
-            </Text>
-          }
-        />
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={PRIMARY} />
+          </View>
+        ) : (
+          <FlatList
+            data={filteredTasks}
+            keyExtractor={(item) => item.task_id.toString()}
+            renderItem={renderTask}
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={[
+              styles.listContent,
+              filteredTasks.length === 0 && styles.emptyListContent,
+            ]}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Ionicons
+                  name="briefcase-outline"
+                  size={42}
+                  color={colors.textSecondary}
+                />
+
+                <Text
+                  style={[
+                    styles.emptyText,
+                    {
+                      color: colors.textSecondary,
+                    },
+                  ]}
+                >
+                  {t("tasks.empty")}
+                </Text>
+              </View>
+            }
+          />
+        )}
       </View>
 
       {menuOpen && (
@@ -744,14 +812,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  loadingContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   listContent: {
     paddingHorizontal: 12,
     paddingBottom: 100,
   },
   emptyListContent: {
     flexGrow: 1,
+  },
+  emptyContainer: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    gap: 10,
+    paddingBottom: 100,
   },
   emptyText: {
     fontSize: 15,
@@ -824,16 +902,6 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   typeText: {
-    color: PRIMARY,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  remainingBadge: {
-    paddingHorizontal: 13,
-    paddingVertical: 7,
-    borderRadius: 4,
-  },
-  remainingText: {
     color: PRIMARY,
     fontSize: 14,
     fontWeight: "600",

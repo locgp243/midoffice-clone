@@ -42,7 +42,7 @@ export default function NotificationsScreen() {
           if (!linkData.task_id) return;
 
           router.push({
-            pathname: "/(tasks)/task-detail",
+            pathname: "/(tasks)/[id]",
             params: {
               id: linkData.task_id.toString(),
             },
