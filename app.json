@@ -11,6 +11,9 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.midvietnam.midoffice",
+      "googleServicesFile": "./google-services.json",
+
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -34,10 +37,17 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e90aa586-3361-49e8-a02c-aa628f6e4916"
+      }
     }
   }
 }

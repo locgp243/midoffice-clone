@@ -35,7 +35,6 @@ export default function Screenlanguage() {
       await changeLanguage(value);
       setShowLanguages(false);
     } catch (error) {
-      console.log("CHANGE LANGUAGE ERROR:", error);
     } finally {
       setIsChanging(false);
     }

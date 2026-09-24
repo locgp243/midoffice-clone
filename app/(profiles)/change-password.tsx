@@ -84,8 +84,6 @@ export default function ChangePasswordScreen() {
       setNewPassword("");
       setConfirmPassword("");
     } catch (error) {
-      console.log("CHANGE PASSWORD ERROR:", error);
-
       Alert.alert(t("password.errorTitle"), t("password.error"));
     } finally {
       setIsLoading(false);

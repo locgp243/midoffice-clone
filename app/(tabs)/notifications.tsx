@@ -50,11 +50,10 @@ export default function NotificationsScreen() {
           break;
 
         default:
-          console.log("UNKNOWN NOTIFICATION TYPE:", linkData.type);
           break;
       }
     } catch (error: any) {
-      console.log("NOTIFICATION PRESS ERROR:", error?.response?.data ?? error);
+      console.log(error?.response?.data ?? error);
     }
   };
 

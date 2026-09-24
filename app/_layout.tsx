@@ -7,6 +7,7 @@ import { useAppTheme } from "@/hooks/useAppTheme";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useLanguageStore } from "@/store/useLanguageStore";
 
+import { pushNotificationServices } from "@/services/pushNotificationServices";
 export default function RootLayout() {
   const { colors } = useAppTheme();
 
@@ -21,6 +22,19 @@ export default function RootLayout() {
   const isLanguagesInitialized = useLanguageStore(
     (state) => state.isInitialized,
   );
+
+  useEffect(() => {
+    const initializePushNotification = async () => {
+      try {
+        const token = await pushNotificationServices.initialize();
+        console.log("check token: ", token);
+      } catch (e) {
+        console.log("useEffect layout(app), check bug push notifications: ", e);
+      }
+    };
+
+    initializePushNotification();
+  }, []);
 
   /**
    * Chạy 1 lần khi app khởi động.
