@@ -101,8 +101,6 @@ export default function LoginScreen() {
         router.replace("/(tabs)");
       }, 1000);
     } catch (error: any) {
-      console.log("LOGIN ERROR:", error);
-
       const message =
         error?.response?.data?.message ??
         error?.message ??

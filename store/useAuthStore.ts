@@ -5,6 +5,8 @@ import { authUser } from "@/types/Auth";
 import * as SecureStore from "expo-secure-store";
 import { create } from "zustand";
 
+import { pushNotificationServices } from "@/services/pushNotificationServices";
+
 interface AuthState {
   user: authUser | null;
 
@@ -36,10 +38,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   isInitialized: false,
 
-  /*
-   * Kiểm tra phiên đăng nhập
-   * khi mở ứng dụng.
-   */
   initializeAuth: async () => {
     try {
       const token = await SecureStore.getItemAsync("access_token");
@@ -50,9 +48,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       console.log("HAS TOKEN:", !!token);
 
-      /*
-       * Chưa login
-       */
       if (!token || !userId) {
         set({
           user: null,
@@ -73,9 +68,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         throw new Error("User ID không hợp lệ.");
       }
 
-      /*
-       * Lấy thông tin user mới nhất.
-       */
       const userDetail = await userServices.getDetail(id);
 
       set({
@@ -88,10 +80,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (error) {
       console.log("INITIALIZE AUTH ERROR:", error);
 
-      /*
-       * Nếu token không còn hợp lệ,
-       * xóa dữ liệu đăng nhập cũ.
-       */
       await SecureStore.deleteItemAsync("access_token");
 
       await SecureStore.deleteItemAsync("refresh_token");
@@ -110,23 +98,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  /*
-   * Load lại User Detail.
-   *
-   * Dùng sau khi:
-   * - đổi avatar
-   * - cập nhật profile
-   * - thay đổi thông tin cá nhân
-   */
   refreshUserDetail: async () => {
     try {
-      /*
-       * Không lấy user.userId ở đây.
-       *
-       * Vì sau khi app restart,
-       * initializeAuth hiện chỉ restore
-       * userDetail chứ chưa restore user.
-       */
       const storedUserId = await SecureStore.getItemAsync("user_id");
 
       if (!storedUserId) {
@@ -151,29 +124,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  /*
-   * Đăng nhập
-   */
   login: async (username, password) => {
     try {
       set({
         isLoading: true,
       });
 
+      const deviceToken = await pushNotificationServices.getToken();
       const response = await authService.login({
         username,
-
         password,
-
         provider: "web",
-
-        device_token: "",
+        device_token: deviceToken ?? "",
       });
 
-      /*
-       * HTTP 200 nhưng backend
-       * result = false
-       */
+      console.log("check response đã gửi toekn chưa: ", response);
+
       if (!response.result) {
         throw new Error(response.message || "Đăng nhập thất bại.");
       }
@@ -188,19 +154,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         throw new Error("API không trả về access token.");
       }
 
-      /*
-       * Lưu authentication
-       */
       await SecureStore.setItemAsync("access_token", user.token);
 
       await SecureStore.setItemAsync("refresh_token", user.refreshToken);
 
       await SecureStore.setItemAsync("user_id", user.userId.toString());
 
-      /*
-       * Sau khi login,
-       * tải User Detail.
-       */
       const userDetail = await userServices.getDetail(user.userId);
 
       set({

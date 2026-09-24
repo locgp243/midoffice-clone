@@ -201,8 +201,6 @@ export default function ProfileDetailScreen() {
       setIsEditing(false);
       showToast("success", t("profile.updateSuccess"));
     } catch (error: any) {
-      console.log("UPDATE PROFILE ERROR:", error);
-
       showToast(
         "error",
         error?.response?.data?.message ??
