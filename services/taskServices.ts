@@ -1,9 +1,9 @@
 import { api } from "@/services/api";
-import { GetTaskRowsParams, TaskApiItem, TaskRowsResponse } from "@/types/Task";
+import { TaskApiItem, TaskRequest, TaskResponse } from "@/types/Task";
 
 export const taskServices = {
-  async getRows(params: GetTaskRowsParams) {
-    const response = await api.get<TaskRowsResponse>("/cskh/task/rows", {
+  async getTasks(params: TaskRequest) {
+    const response = await api.get<TaskResponse>("/cskh/task/rows", {
       params: {
         web: params.web ?? "yes",
         offset: params.offset ?? 0,
@@ -17,9 +17,9 @@ export const taskServices = {
 
   async getDetail(
     taskId: number,
-    creator: number,
+    creator?: number,
   ): Promise<TaskApiItem | null> {
-    const response = await api.get<TaskRowsResponse>("/cskh/task/rows", {
+    const response = await api.get<TaskResponse>("/cskh/task/rows", {
       params: {
         web: "yes",
         offset: 0,
@@ -29,6 +29,7 @@ export const taskServices = {
       },
     });
 
+    console.log("Check servies: ", response.data);
     return response.data.data?.[0] ?? null;
   },
 };

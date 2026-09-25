@@ -1,8 +1,11 @@
 import AnimatedBell from "@/components/common/AnimatedBell";
+import AnimatedTabScreen from "@/components/common/AnimatedTabScreen";
 import AnimatedUnreadDot from "@/components/common/AnimatedUnreadDot";
 import { useAppTheme } from "@/hooks/useAppTheme";
+import { useAuthStore } from "@/store/useAuthStore";
 import { useNotificationStore } from "@/store/useNotificationStore";
 import { NotificationData, NotificationLink } from "@/types/Notifications";
+import { formatDate, formatTime } from "@/utils/formatDateTime";
 import { router } from "expo-router";
 import {
   ActivityIndicator,
@@ -12,7 +15,6 @@ import {
   Text,
   View,
 } from "react-native";
-
 interface NotificationGroup {
   date: string;
   notifications: NotificationData[];
@@ -26,6 +28,8 @@ export default function NotificationsScreen() {
   const seenNotification = useNotificationStore(
     (state) => state.seenNotification,
   );
+
+  const userId = useAuthStore((state) => state.userId);
 
   const handleNotificationPress = async (notification: NotificationData) => {
     try {
@@ -41,10 +45,13 @@ export default function NotificationsScreen() {
         case "task":
           if (!linkData.task_id) return;
 
+          console.log("Check task id bên thông báo: ", linkData.task_id);
+
           router.push({
             pathname: "/(tasks)/[id]",
             params: {
               id: linkData.task_id.toString(),
+              creator: userId,
             },
           });
           break;
@@ -55,18 +62,6 @@ export default function NotificationsScreen() {
     } catch (error: any) {
       console.log(error?.response?.data ?? error);
     }
-  };
-
-  const formatTime = (timestamp: number) => {
-    return new Date(timestamp).toLocaleTimeString("vi-VN", {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-  };
-
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleDateString("vi-VN");
   };
 
   const groupNotifications = (
@@ -108,122 +103,124 @@ export default function NotificationsScreen() {
   }
 
   return (
-    <View
-      style={[
-        styles.screen,
-        {
-          backgroundColor: colors.background,
-        },
-      ]}
-    >
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.container}
+    <AnimatedTabScreen>
+      <View
+        style={[
+          styles.screen,
+          {
+            backgroundColor: colors.background,
+          },
+        ]}
       >
-        {notificationGroups.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text
-              style={[
-                styles.emptyText,
-                {
-                  color: colors.textSecondary,
-                },
-              ]}
-            >
-              Không có thông báo.
-            </Text>
-          </View>
-        ) : (
-          notificationGroups.map((group) => (
-            <View key={group.date} style={styles.group}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.container}
+        >
+          {notificationGroups.length === 0 ? (
+            <View style={styles.emptyContainer}>
               <Text
                 style={[
-                  styles.date,
+                  styles.emptyText,
                   {
-                    color: colors.text,
+                    color: colors.textSecondary,
                   },
                 ]}
               >
-                Ngày {group.date}
+                Không có thông báo.
               </Text>
+            </View>
+          ) : (
+            notificationGroups.map((group) => (
+              <View key={group.date} style={styles.group}>
+                <Text
+                  style={[
+                    styles.date,
+                    {
+                      color: colors.text,
+                    },
+                  ]}
+                >
+                  Ngày {group.date}
+                </Text>
 
-              <View style={styles.notificationList}>
-                {group.notifications.map((notification) => {
-                  const unread = notification.is_seen === 0;
+                <View style={styles.notificationList}>
+                  {group.notifications.map((notification) => {
+                    const unread = notification.is_seen === 0;
 
-                  return (
-                    <Pressable
-                      key={notification.id}
-                      onPress={() => handleNotificationPress(notification)}
-                      style={({ pressed }) => [
-                        styles.notificationCard,
-                        {
-                          backgroundColor: unread
-                            ? isDark
-                              ? "rgba(25, 118, 233, 0.15)"
-                              : "#E9F6FD"
-                            : colors.surface,
-                          opacity: pressed ? 0.75 : 1,
-                        },
-                      ]}
-                    >
-                      <View
-                        style={[
-                          styles.iconContainer,
+                    return (
+                      <Pressable
+                        key={notification.id}
+                        onPress={() => handleNotificationPress(notification)}
+                        style={({ pressed }) => [
+                          styles.notificationCard,
                           {
-                            backgroundColor: colors.surface,
-                            borderColor: colors.border,
+                            backgroundColor: unread
+                              ? isDark
+                                ? "rgba(25, 118, 233, 0.15)"
+                                : "#E9F6FD"
+                              : colors.surface,
+                            opacity: pressed ? 0.75 : 1,
                           },
                         ]}
                       >
-                        <AnimatedBell unread={unread} />
-                      </View>
-
-                      <View style={styles.content}>
-                        <Text
+                        <View
                           style={[
-                            styles.title,
+                            styles.iconContainer,
                             {
-                              color: colors.text,
+                              backgroundColor: colors.surface,
+                              borderColor: colors.border,
                             },
                           ]}
                         >
-                          {notification.title}
-                        </Text>
+                          <AnimatedBell unread={unread} />
+                        </View>
 
-                        <Text
-                          style={[
-                            styles.description,
-                            {
-                              color: colors.text,
-                            },
-                          ]}
-                        >
-                          {notification.description}
-                        </Text>
+                        <View style={styles.content}>
+                          <Text
+                            style={[
+                              styles.title,
+                              {
+                                color: colors.text,
+                              },
+                            ]}
+                          >
+                            {notification.title}
+                          </Text>
 
-                        <Text
-                          style={[
-                            styles.time,
-                            {
-                              color: colors.textSecondary,
-                            },
-                          ]}
-                        >
-                          {formatTime(notification.created_at)}
-                        </Text>
-                      </View>
+                          <Text
+                            style={[
+                              styles.description,
+                              {
+                                color: colors.text,
+                              },
+                            ]}
+                          >
+                            {notification.description}
+                          </Text>
 
-                      {unread && <AnimatedUnreadDot />}
-                    </Pressable>
-                  );
-                })}
+                          <Text
+                            style={[
+                              styles.time,
+                              {
+                                color: colors.textSecondary,
+                              },
+                            ]}
+                          >
+                            {formatTime(notification.created_at)}
+                          </Text>
+                        </View>
+
+                        {unread && <AnimatedUnreadDot />}
+                      </Pressable>
+                    );
+                  })}
+                </View>
               </View>
-            </View>
-          ))
-        )}
-      </ScrollView>
-    </View>
+            ))
+          )}
+        </ScrollView>
+      </View>
+    </AnimatedTabScreen>
   );
 }
 

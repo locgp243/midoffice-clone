@@ -1,21 +1,32 @@
+import AnimatedTabScreen from "@/components/common/AnimatedTabScreen";
+import { useAppTheme } from "@/hooks/useAppTheme";
 import { StyleSheet, Text, View } from "react-native";
 
-/**
- * MENU SCREEN
- *
- * TODO sau này:
- * - Đặt phòng họp
- * - Nội quy
- * - Bản tin
- * - Thư viện
- * - Lịch âm
- * - ...
- */
 export default function MenuScreen() {
+  const { colors } = useAppTheme();
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Danh sách</Text>
-    </View>
+    <AnimatedTabScreen>
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: colors.background,
+          },
+        ]}
+      >
+        <Text
+          style={[
+            styles.title,
+            {
+              color: colors.text,
+            },
+          ]}
+        >
+          Danh sách
+        </Text>
+      </View>
+    </AnimatedTabScreen>
   );
 }
 

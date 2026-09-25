@@ -207,6 +207,7 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 14,
     overflow: "hidden",
+    boxShadow: "0px 2px 6px rgba(0, 0, 0, 0.08)",
   },
   settingRow: {
     minHeight: 64,

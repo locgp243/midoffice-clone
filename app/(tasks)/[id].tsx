@@ -1,12 +1,14 @@
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { taskServices } from "@/services/taskServices";
 import { TaskApiItem } from "@/types/Task";
+import { formatDateTime } from "@/utils/formatDateTime";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -17,8 +19,10 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 const PRIMARY = "#1976E9";
 const STAR = "#FFC928";
 const SUCCESS = "#28A745";
@@ -26,45 +30,42 @@ const SUCCESS_BACKGROUND = "#EAF7ED";
 const WARNING = "#F4A62A";
 const WARNING_BACKGROUND = "#FFF6E8";
 
-const formatDateTime = (timestamp: number | null) => {
-  if (!timestamp) return "--";
-
-  return new Date(timestamp).toLocaleString("vi-VN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-};
-
 const getStatusText = (status: number) => {
   if (status === 3) return "Hoàn thành";
   if (status === 2) return "Đang chờ";
   return `Status ${status}`;
 };
 
+import { useAuthStore } from "@/store/useAuthStore";
+import { getImageUrl } from "@/utils/imageUrl";
 export default function TaskDetailScreen() {
   const params = useLocalSearchParams<{
     id: string;
-    creator?: string;
+    creator: string;
   }>();
 
   const { colors, isDark } = useAppTheme();
   const { t } = useTranslation();
-
+  const insets = useSafeAreaInsets();
   const [task, setTask] = useState<TaskApiItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [commentModalVisible, setCommentModalVisible] = useState(false);
   const [comment, setComment] = useState("");
 
+  const userId = useAuthStore((state) => state.userId);
+  const userDetail = useAuthStore((status) => status.userDetail);
+  const userDetailAvatar = userDetail?.avatar;
+  console.log("check avatar: ", userDetailAvatar);
+  console.log("check avatar 2: ", getImageUrl(userDetailAvatar));
+
+  const avatarUrl = userDetailAvatar ? getImageUrl(userDetailAvatar) : null;
+
   const taskId = Number(params.id);
-  const creatorId = Number(params.creator || 100000202);
+  const creator = Number(params.creator);
 
   const fetchTaskDetail = useCallback(async () => {
-    if (!taskId || Number.isNaN(taskId)) {
+    if (!taskId || Number.isNaN(taskId) || !userId) {
       setLoading(false);
       setTask(null);
       return;
@@ -72,7 +73,16 @@ export default function TaskDetailScreen() {
 
     try {
       setLoading(true);
-      const data = await taskServices.getDetail(taskId, creatorId);
+
+      console.log("TASK DETAIL PARAMS:", {
+        taskId,
+        userId,
+      });
+
+      const data = await taskServices.getDetail(taskId, creator);
+
+      console.log("TASK DETAIL DATA:", data);
+
       setTask(data);
     } catch (error) {
       console.log("GET TASK DETAIL ERROR:", error);
@@ -80,26 +90,27 @@ export default function TaskDetailScreen() {
     } finally {
       setLoading(false);
     }
-  }, [taskId, creatorId]);
+  }, [taskId, userId]);
 
   useEffect(() => {
     fetchTaskDetail();
   }, [fetchTaskDetail]);
 
   const handleRefresh = useCallback(async () => {
-    if (!taskId || Number.isNaN(taskId)) return;
+    if (!taskId || Number.isNaN(taskId) || !userId) return;
 
     try {
       setRefreshing(true);
-      const data = await taskServices.getDetail(taskId, creatorId);
+
+      const data = await taskServices.getDetail(taskId, creator);
+
       setTask(data);
     } catch (error) {
       console.log("REFRESH TASK DETAIL ERROR:", error);
     } finally {
       setRefreshing(false);
     }
-  }, [taskId, creatorId]);
-
+  }, [taskId, userId]);
   const closeCommentModal = () => {
     setCommentModalVisible(false);
   };
@@ -219,7 +230,14 @@ export default function TaskDetailScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingBottom: isCompleted
+              ? 24 + insets.bottom
+              : 100 + insets.bottom,
+          },
+        ]}
       >
         <View style={[styles.card, { backgroundColor: colors.surface }]}>
           <View style={styles.taskHeader}>
@@ -459,7 +477,14 @@ export default function TaskDetailScreen() {
                   },
                 ]}
               >
-                <Ionicons name="person" size={23} color={PRIMARY} />
+                {userDetailAvatar ? (
+                  <Image
+                    source={{ uri: avatarUrl as string }}
+                    style={styles.avatarImage}
+                  />
+                ) : (
+                  <Ionicons name="person" size={23} color={PRIMARY} />
+                )}
               </View>
 
               <View style={styles.memberInfo}>
@@ -537,18 +562,26 @@ export default function TaskDetailScreen() {
             {
               backgroundColor: colors.surface,
               borderTopColor: colors.border,
+              paddingBottom: Math.max(insets.bottom, 12),
             },
           ]}
         >
           <TouchableOpacity
-            activeOpacity={0.8}
+            activeOpacity={0.75}
             style={[
               styles.rejectButton,
               {
+                backgroundColor: colors.surface,
                 borderColor: colors.border,
               },
             ]}
           >
+            <Ionicons
+              name="close-circle-outline"
+              size={20}
+              color={colors.text}
+            />
+
             <Text
               style={[
                 styles.rejectText,
@@ -556,23 +589,34 @@ export default function TaskDetailScreen() {
                   color: colors.text,
                 },
               ]}
+              numberOfLines={1}
             >
               {t("taskDetail.reject")}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity activeOpacity={0.8} style={styles.confirmButton}>
-            <Text style={styles.confirmText}>
+            <Ionicons
+              name="checkmark-circle-outline"
+              size={20}
+              color="#FFFFFF"
+            />
+
+            <Text
+              style={styles.confirmText}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+            >
               {t("taskDetail.confirmProcessing")}
             </Text>
           </TouchableOpacity>
         </View>
       )}
-
       <Modal
         visible={commentModalVisible}
         transparent
-        animationType="fade"
+        animationType="slide"
         statusBarTranslucent
         onRequestClose={closeCommentModal}
       >
@@ -636,7 +680,14 @@ export default function TaskDetailScreen() {
                   },
                 ]}
               >
-                <Ionicons name="person" size={22} color={PRIMARY} />
+                {avatarUrl ? (
+                  <Image
+                    source={{ uri: avatarUrl as string }}
+                    style={styles.avatarImage}
+                  />
+                ) : (
+                  <Ionicons name="person" size={22} color={PRIMARY} />
+                )}
               </View>
 
               <TextInput
@@ -805,7 +856,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   notFoundText: {
-    fontSize: 15,
+    fontSize: 12,
   },
   retryButton: {
     height: 42,
@@ -819,7 +870,7 @@ const styles = StyleSheet.create({
   },
   retryButtonText: {
     color: "#FFFFFF",
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "600",
   },
   headerSafeArea: {
@@ -846,7 +897,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 12,
-    paddingBottom: 110,
     gap: 12,
   },
   card: {
@@ -862,13 +912,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   taskTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: "700",
     lineHeight: 27,
   },
   moreButton: {
-    width: 36,
-    height: 36,
+    width: 24,
+    height: 24,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -883,10 +933,10 @@ const styles = StyleSheet.create({
     marginTop: 13,
   },
   creatorText: {
-    fontSize: 15,
+    fontSize: 12,
   },
   createdText: {
-    fontSize: 14,
+    fontSize: 12,
     marginTop: 6,
   },
   badges: {
@@ -901,7 +951,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   statusBadgeText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
   },
   primaryBadge: {
@@ -911,7 +961,7 @@ const styles = StyleSheet.create({
   },
   primaryBadgeText: {
     color: PRIMARY,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
   },
   divider: {
@@ -922,11 +972,11 @@ const styles = StyleSheet.create({
     gap: 7,
   },
   fieldLabel: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "600",
   },
   fieldValue: {
-    fontSize: 15,
+    fontSize: 12,
     lineHeight: 22,
   },
   imageSection: {
@@ -934,8 +984,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   emptyImage: {
-    width: 72,
-    height: 72,
+    width: 52,
+    height: 52,
     borderRadius: 8,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: "center",
@@ -944,6 +994,7 @@ const styles = StyleSheet.create({
   sectionCard: {
     borderRadius: 12,
     padding: 16,
+    boxShadow: "0px 2px 6px rgba(0, 0, 0, 0.08)",
   },
   sectionHeader: {
     minHeight: 36,
@@ -953,12 +1004,12 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "700",
   },
   addButton: {
-    width: 34,
-    height: 34,
+    width: 28,
+    height: 28,
     borderRadius: 17,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: "center",
@@ -975,7 +1026,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   emptySectionText: {
-    fontSize: 14,
+    fontSize: 12,
   },
   member: {
     paddingTop: 14,
@@ -992,16 +1043,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 999,
+  },
   memberInfo: {
     flex: 1,
     gap: 4,
   },
   memberName: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: "600",
   },
   remainingText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
   },
   deadlineRow: {
@@ -1012,7 +1068,7 @@ const styles = StyleSheet.create({
     marginLeft: 54,
   },
   deadlineText: {
-    fontSize: 13,
+    fontSize: 12,
   },
   bottomActions: {
     position: "absolute",
@@ -1020,36 +1076,58 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 12,
-    paddingTop: 10,
-    paddingBottom: 14,
+    paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
     gap: 10,
+    shadowColor: "#000000",
+    shadowOffset: {
+      width: 0,
+      height: -3,
+    },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 12,
   },
   rejectButton: {
-    height: 50,
-    paddingHorizontal: 25,
-    borderRadius: 8,
+    flex: 0.8,
+    height: 48,
+    borderRadius: 12,
     borderWidth: 1,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: 6,
+    paddingHorizontal: 10,
   },
   rejectText: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: "600",
   },
   confirmButton: {
-    flex: 1,
-    height: 50,
-    borderRadius: 8,
+    flex: 1.5,
+    height: 48,
+    borderRadius: 12,
     backgroundColor: PRIMARY,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: 7,
     paddingHorizontal: 12,
+    shadowColor: PRIMARY,
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    shadowOpacity: 0.18,
+    shadowRadius: 5,
+    elevation: 3,
   },
   confirmText: {
+    flexShrink: 1,
     color: "#FFFFFF",
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: "600",
     textAlign: "center",
   },
@@ -1077,6 +1155,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 12,
     elevation: 8,
+    boxShadow: "0px 12px 32px rgba(0, 0, 0, 0.16)",
   },
   modalHeader: {
     flexDirection: "row",
@@ -1085,7 +1164,7 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   modalTitle: {
-    fontSize: 17,
+    fontSize: 12,
     fontWeight: "700",
   },
   modalCloseButton: {
@@ -1100,7 +1179,7 @@ const styles = StyleSheet.create({
   },
   commentInputRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     gap: 10,
     marginTop: 14,
   },
@@ -1113,13 +1192,13 @@ const styles = StyleSheet.create({
   },
   commentInput: {
     flex: 1,
-    minHeight: 85,
+    minHeight: 55,
     maxHeight: 130,
     borderWidth: 1,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    fontSize: 14,
+    fontSize: 12,
     lineHeight: 20,
   },
   commentActions: {
@@ -1155,7 +1234,7 @@ const styles = StyleSheet.create({
   },
   sendCommentText: {
     color: "#FFFFFF",
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "600",
   },
 });

@@ -12,9 +12,7 @@ export default function RootLayout() {
   const { colors } = useAppTheme();
 
   const isInitialized = useAuthStore((state) => state.isInitialized);
-
   const initializeAuth = useAuthStore((state) => state.initializeAuth);
-
   const initializeLanguages = useLanguageStore(
     (state) => state.initializeLanguage,
   );
@@ -36,18 +34,11 @@ export default function RootLayout() {
     initializePushNotification();
   }, []);
 
-  /**
-   * Chạy 1 lần khi app khởi động.
-   */
   useEffect(() => {
     initializeAuth();
     initializeLanguages();
   }, [initializeAuth, initializeLanguages]);
 
-  /**
-   * Trong lúc đang đọc token từ SecureStore
-   * thì chưa render Login hoặc Tabs.
-   */
   if (!isInitialized || !isLanguagesInitialized) {
     return (
       <SafeAreaProvider>
