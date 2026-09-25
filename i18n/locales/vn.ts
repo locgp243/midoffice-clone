@@ -202,12 +202,99 @@ const vi = {
   },
 
   home: {
-    greeting: "Xin chào",
     title: "Trang chủ",
+    greeting: "Xin chào",
+    current: "HIỆN TẠI",
+    month: "THÁNG {{month}} {{year}}",
+    checkIn: "Chấm công",
+
+    summary: {
+      kpi: "KPI",
+      tasks: "Công việc",
+      attendance: "Chấm công",
+    },
+
+    kpi: {
+      title: "KPI THÁNG",
+      point: "{{value}} ĐIỂM",
+      needImprovement: "CẦN CẢI THIỆN",
+      description: "Hoàn thành tốt các chỉ tiêu công việc",
+    },
+
+    tasks: {
+      title: "CÔNG VIỆC",
+      total: "Tổng số",
+      completed: "Hoàn thành",
+      doing: "Đang làm",
+      overdue: "Quá hạn",
+      lateCompleted: "Hoàn thành trễ",
+    },
+
+    attendance: {
+      title: "CHẤM CÔNG",
+      presentPercent: "có mặt",
+      workingDays: "Ngày làm việc",
+      present: "Có mặt",
+      absent: "Vắng mặt",
+
+      status: {
+        onTime: "Đúng giờ",
+        late: "Đi trễ",
+        earlyLeave: "Về sớm",
+        lateAndEarly: "Đi trễ/Về sớm",
+        missingCheckout: "Không chấm công ra",
+        leaveWithPermission: "Nghỉ có phép",
+        leaveWithoutPermission: "Nghỉ không phép",
+        unknown: "Không xác định",
+        sale: "Sale",
+        holiday: "Nghỉ lễ",
+      },
+
+      detail: {
+        onTimeRate: "Tỷ lệ đúng giờ:",
+        late: "Đi trễ:",
+        earlyLeave: "Về sớm:",
+        days: "{{value}} ngày",
+      },
+    },
   },
 
   menu: {
-    title: "Menu",
+    title: "Danh sách",
+
+    sections: {
+      personal: "Cá nhân",
+      internal: "Nội bộ",
+      library: "Thư viện",
+      lookup: "Tra cứu",
+    },
+
+    items: {
+      attendance: "Chấm công",
+      attendanceList: "Danh sách chấm công",
+      leaveRequest: "Đơn xin nghỉ phép/ nghỉ việc",
+      myMeetingSchedule: "Lịch họp của bạn",
+      proposal: "Đề xuất",
+      initiative: "Sáng kiến",
+      taskStatistics: "Thống kê nhiệm vụ",
+      businessReport: "Báo cáo phòng kinh doanh",
+      monthlyDepartmentPlan: "Kế hoạch phòng ban theo tháng",
+      teamPlan: "Kế hoạch đội/nhóm",
+      weeklyKpiReport: "Báo cáo KPI tuần",
+      monthlyKpiReport: "Báo cáo KPI tháng",
+      myDutySchedule: "Lịch trực của bạn",
+
+      meetingRoomBooking: "Đặt phòng họp",
+      rulesAndPenalties: "Nội quy - Chế tài vi phạm",
+      internalNews: "Bản tin nội bộ",
+      warranty: "Bảo hành",
+
+      internalLibrary: "Thư viện nội bộ",
+      customerServiceProcess: "Quy trình phòng CSKH",
+
+      officeHoroscope: "Tử vi văn phòng",
+      lunarCalendar: "Lịch âm",
+    },
   },
 };
 
