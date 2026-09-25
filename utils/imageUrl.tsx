@@ -5,7 +5,6 @@ export const getImageUrl = (path?: string | null): string | null => {
     return null;
   }
 
-  // URL hoặc local file
   if (
     path.startsWith("http://") ||
     path.startsWith("https://") ||
@@ -16,14 +15,11 @@ export const getImageUrl = (path?: string | null): string | null => {
   }
 
   if (!STORAGE_URL) {
-    console.warn("EXPO_PUBLIC_STORAGE_URL chưa được cấu hình");
-
+    console.warn("lỗi storraeg url");
     return null;
   }
 
   const baseUrl = STORAGE_URL.replace(/\/$/, "");
-
   const imagePath = path.startsWith("/") ? path : `/${path}`;
-
   return `${baseUrl}${imagePath}`;
 };

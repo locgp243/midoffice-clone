@@ -30,7 +30,7 @@ export type TaskApiItem = {
   star: number | null;
 };
 
-export type TaskRowsResponse = {
+export type TaskResponse = {
   result: boolean;
   message: string;
   status: number;
@@ -40,7 +40,7 @@ export type TaskRowsResponse = {
   options: Record<string, unknown>;
 };
 
-export type GetTaskRowsParams = {
+export type TaskRequest = {
   web?: "yes" | "no";
   offset?: number;
   limit?: number;

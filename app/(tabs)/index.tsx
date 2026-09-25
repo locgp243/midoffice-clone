@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 
+import AnimatedTabScreen from "@/components/common/AnimatedTabScreen";
 import { Spacing } from "@/constants/Spacing";
 import { FontSize, FontWeight } from "@/constants/Typography";
 import { useAppTheme } from "@/hooks/useAppTheme";
@@ -8,38 +9,40 @@ export default function HomeScreen() {
   const { colors } = useAppTheme();
 
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          backgroundColor: colors.background,
-        },
-      ]}
-    >
-      <View style={styles.content}>
-        <Text
-          style={[
-            styles.title,
-            {
-              color: colors.text,
-            },
-          ]}
-        >
-          Tổng quan
-        </Text>
+    <AnimatedTabScreen>
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: colors.background,
+          },
+        ]}
+      >
+        <View style={styles.content}>
+          <Text
+            style={[
+              styles.title,
+              {
+                color: colors.text,
+              },
+            ]}
+          >
+            Tổng quan
+          </Text>
 
-        <Text
-          style={[
-            styles.description,
-            {
-              color: colors.textSecondary,
-            },
-          ]}
-        >
-          MID Office
-        </Text>
+          <Text
+            style={[
+              styles.description,
+              {
+                color: colors.textSecondary,
+              },
+            ]}
+          >
+            MID Office
+          </Text>
+        </View>
       </View>
-    </View>
+    </AnimatedTabScreen>
   );
 }
 

@@ -1,8 +1,9 @@
+import AnimatedTabScreen from "@/components/common/AnimatedTabScreen";
 import AppToast from "@/components/common/AppToast";
 import Avatar from "@/components/common/Avatar";
 import AvatarViewer from "@/components/common/AvatarViewer";
-import { Radius, Spacing } from "@/constants/Spacing";
-import { FontSize, FontWeight } from "@/constants/Typography";
+import { Radius } from "@/constants/Spacing";
+import { FontWeight } from "@/constants/Typography";
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { userServices } from "@/services/userServices";
 import { useAuthStore } from "@/store/useAuthStore";
@@ -160,7 +161,7 @@ export default function ProfileScreen() {
   };
 
   return (
-    <>
+    <AnimatedTabScreen>
       <ScrollView
         style={[
           styles.screen,
@@ -380,7 +381,7 @@ export default function ProfileScreen() {
           message={toast.message}
         />
       </View>
-    </>
+    </AnimatedTabScreen>
   );
 }
 
@@ -389,95 +390,87 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   container: {
-    padding: Spacing.lg,
-    gap: Spacing.lg,
-    paddingBottom: Spacing.xxxl,
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 28,
+    gap: 12,
   },
   profileCard: {
     flexDirection: "row",
     alignItems: "center",
-    padding: Spacing.xl,
-    borderRadius: Radius.lg,
-  },
-  avatar: {
-    width: 82,
-    height: 82,
-    borderRadius: 41,
-  },
-  avatarPlaceholder: {
-    width: 82,
-    height: 82,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 41,
-    backgroundColor: "#1976E9",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    boxShadow: "0px 2px 6px rgba(0, 0, 0, 0.08)",
   },
   userInfo: {
     flex: 1,
-    marginLeft: Spacing.lg,
+    marginLeft: 14,
   },
   name: {
-    fontSize: FontSize.xl,
+    fontSize: 17,
     fontWeight: FontWeight.bold,
   },
   username: {
-    marginTop: Spacing.xs,
-    fontSize: FontSize.md,
+    marginTop: 3,
+    fontSize: 12,
   },
   roleContainer: {
     alignSelf: "flex-start",
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.xs,
-    marginTop: Spacing.sm,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
+    gap: 5,
+    marginTop: 7,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
     borderRadius: Radius.round,
     backgroundColor: "rgba(25,118,233,0.10)",
   },
   role: {
     color: "#1976E9",
-    fontSize: FontSize.sm,
+    fontSize: 12,
     fontWeight: FontWeight.medium,
   },
   menuCard: {
-    borderRadius: Radius.lg,
+    borderRadius: 12,
     overflow: "hidden",
+    boxShadow: "0px 2px 6px rgba(0, 0, 0, 0.08)",
   },
   menuRow: {
-    minHeight: 72,
+    minHeight: 58,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: Spacing.lg,
+    paddingHorizontal: 14,
   },
   iconBox: {
-    width: 42,
-    height: 42,
+    width: 36,
+    height: 36,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: Radius.md,
+    borderRadius: 9,
   },
   menuContent: {
     flex: 1,
-    marginLeft: Spacing.md,
-    paddingVertical: Spacing.md,
+    marginLeft: 12,
+    paddingVertical: 10,
   },
   menuTitle: {
-    fontSize: FontSize.base,
+    fontSize: 14,
     fontWeight: FontWeight.medium,
   },
   menuSubtitle: {
-    marginTop: 3,
-    fontSize: FontSize.sm,
+    marginTop: 2,
+    fontSize: 11,
+    lineHeight: 15,
   },
   divider: {
     height: StyleSheet.hairlineWidth,
-    marginLeft: 70,
+    marginLeft: 62,
   },
   footer: {
     textAlign: "center",
-    marginTop: Spacing.md,
-    fontSize: FontSize.sm,
+    marginTop: 8,
+    fontSize: 11,
   },
   avatarButton: {
     position: "relative",
@@ -486,11 +479,11 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 0,
     bottom: 0,
-    width: 28,
-    height: 28,
+    width: 24,
+    height: 24,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 14,
+    borderRadius: 12,
     backgroundColor: "#1976E9",
     borderWidth: 2,
     borderColor: "#FFFFFF",

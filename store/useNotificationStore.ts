@@ -18,9 +18,7 @@ export const useNotificationStore = create<NotificationState>((set) => ({
   fetchNotifications: async () => {
     try {
       set({ isLoading: true });
-
       const response = await notificationServices.getNotifications(0, 20);
-
       if (!response.result) {
         throw new Error(response.message);
       }
@@ -30,7 +28,7 @@ export const useNotificationStore = create<NotificationState>((set) => ({
         unseenCount: response.options?.unseen_count ?? 0,
       });
     } catch (error: any) {
-      console.log("GET NOTIFICATIONS ERROR:", error?.response?.data ?? error);
+      console.log("lấy thông báo thất bại:", error?.response?.data ?? error);
     } finally {
       set({ isLoading: false });
     }
@@ -38,16 +36,12 @@ export const useNotificationStore = create<NotificationState>((set) => ({
 
   seenNotification: async (notificationId) => {
     try {
-      console.log("NOTIFICATION ID:", notificationId);
-      console.log(
-        "SERVICE FUNCTION:",
-        typeof notificationServices.seenNotification,
-      );
+      console.log("check id noti:", notificationId);
 
       const response =
         await notificationServices.seenNotification(notificationId);
 
-      console.log("SEEN RESPONSE:", response);
+      console.log("check dataa:", response);
 
       if (!response.result) {
         throw new Error(response.message || "Không thể cập nhật thông báo.");
@@ -70,7 +64,7 @@ export const useNotificationStore = create<NotificationState>((set) => ({
         };
       });
     } catch (error) {
-      console.log("SEEN NOTIFICATION ERROR:", error);
+      console.log("thông báo gặp lỗi:", error);
       throw error;
     }
   },

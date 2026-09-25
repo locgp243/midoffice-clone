@@ -1,12 +1,29 @@
+import AnimatedTabScreen from "@/components/common/AnimatedTabScreen";
+import Skeleton from "@/components/common/Skeleton";
+import { Colors } from "@/constants/Colors";
+import {
+  filters,
+  floatingActions,
+  STATUS_MAP,
+  TaskFilter,
+  TopTab,
+  topTabs,
+} from "@/constants/Tasks";
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { taskServices } from "@/services/taskServices";
+import { useAuthStore } from "@/store/useAuthStore";
 import { TaskApiItem } from "@/types/Task";
+import { formatDateTime } from "@/utils/formatDateTime";
+import { normalizeText } from "@/utils/normalizeText";
+import { getTaskStatusLabel, isTaskOverdue } from "@/utils/taskCommon";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
+  Animated,
+  Dimensions,
   FlatList,
   Pressable,
   ScrollView,
@@ -17,93 +34,7 @@ import {
   View,
 } from "react-native";
 
-type TopTab = "mine" | "created" | "customerRequest" | "staff";
-
-type TaskFilter =
-  | "all"
-  | "pending"
-  | "processing"
-  | "overdue"
-  | "waitingApproval"
-  | "completed";
-
-const PRIMARY = "#1976E9";
-const STAR = "#FFC928";
-const PRIMARY_BACKGROUND = "#E8F2FF";
-
-const USER_ID = 100000202;
-const USER_NAME = "Phạm Gia Lộc";
-
-const STATUS_MAP: Record<Exclude<TaskFilter, "all" | "overdue">, number[]> = {
-  pending: [2],
-  processing: [],
-  waitingApproval: [],
-  completed: [3],
-};
-
-const topTabs: TopTab[] = ["mine", "created", "customerRequest", "staff"];
-
-const filters: TaskFilter[] = [
-  "all",
-  "pending",
-  "processing",
-  "overdue",
-  "waitingApproval",
-  "completed",
-];
-
-const floatingActions = [
-  {
-    id: "office",
-    label: "officeTask",
-    icon: "create-outline" as const,
-  },
-  {
-    id: "outside",
-    label: "outsideTask",
-    icon: "arrow-redo-circle-outline" as const,
-  },
-  {
-    id: "department",
-    label: "departmentRequest",
-    icon: "chatbox-ellipses-outline" as const,
-  },
-  {
-    id: "support",
-    label: "customerSupportRequest",
-    icon: "git-compare-outline" as const,
-  },
-];
-
-const formatDateTime = (timestamp: number | null) => {
-  if (!timestamp) return "--";
-
-  return new Date(timestamp).toLocaleString("vi-VN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-};
-
-const normalizeText = (value?: string | null) => {
-  return value?.trim().toLocaleLowerCase("vi-VN") ?? "";
-};
-
-const isOverdue = (task: TaskApiItem) => {
-  if (!task.expired_on) return false;
-  return task.expired_on < Date.now();
-};
-
-const getStatusLabel = (status: number) => {
-  if (STATUS_MAP.pending.includes(status)) return "Đang chờ";
-  if (STATUS_MAP.processing.includes(status)) return "Đang xử lý";
-  if (STATUS_MAP.waitingApproval.includes(status)) return "Chờ duyệt";
-  if (STATUS_MAP.completed.includes(status)) return "Hoàn thành";
-  return `Status ${status}`;
-};
+const SCREEN_WIDTH = Dimensions.get("window").width;
 
 export default function TasksScreen() {
   const { colors, isDark } = useAppTheme();
@@ -116,16 +47,38 @@ export default function TasksScreen() {
   const [tasks, setTasks] = useState<TaskApiItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [filterLoading, setFilterLoading] = useState(false);
+  const [animatingTab, setAnimatingTab] = useState(false);
+
+  const contentTranslateX = useRef(new Animated.Value(0)).current;
+  const fabRotation = useRef(new Animated.Value(0)).current;
+
+  const actionAnimations = useRef(
+    floatingActions.map(() => new Animated.Value(0)),
+  ).current;
+
+  const filterTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const user = useAuthStore((state) => state.user);
+  const userDetail = useAuthStore((state) => state.userDetail);
+
+  const userId = user?.userId;
+  const userName = userDetail?.name;
 
   const fetchTasks = useCallback(async () => {
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
 
-      const response = await taskServices.getRows({
+      const response = await taskServices.getTasks({
         web: "yes",
         offset: 0,
         limit: 20,
-        creator: USER_ID,
+        creator: userId,
       });
 
       setTasks(response.data ?? []);
@@ -135,21 +88,31 @@ export default function TasksScreen() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     fetchTasks();
   }, [fetchTasks]);
 
+  useEffect(() => {
+    return () => {
+      if (filterTimerRef.current) {
+        clearTimeout(filterTimerRef.current);
+      }
+    };
+  }, []);
+
   const handleRefresh = useCallback(async () => {
+    if (!userId) return;
+
     try {
       setRefreshing(true);
 
-      const response = await taskServices.getRows({
+      const response = await taskServices.getTasks({
         web: "yes",
         offset: 0,
         limit: 20,
-        creator: USER_ID,
+        creator: userId,
       });
 
       setTasks(response.data ?? []);
@@ -158,11 +121,125 @@ export default function TasksScreen() {
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [userId]);
+
+  const handleChangeFilter = (filter: TaskFilter) => {
+    if (filter === activeFilter) return;
+
+    if (filterTimerRef.current) {
+      clearTimeout(filterTimerRef.current);
+    }
+
+    setActiveFilter(filter);
+    setFilterLoading(true);
+
+    filterTimerRef.current = setTimeout(() => {
+      setFilterLoading(false);
+    }, 1000);
+  };
+
+  const handleChangeTab = (tab: TopTab) => {
+    if (tab === activeTab || animatingTab) return;
+
+    const currentIndex = topTabs.indexOf(activeTab);
+    const nextIndex = topTabs.indexOf(tab);
+    const direction = nextIndex > currentIndex ? -1 : 1;
+
+    if (filterTimerRef.current) {
+      clearTimeout(filterTimerRef.current);
+    }
+
+    setFilterLoading(false);
+    setAnimatingTab(true);
+
+    Animated.timing(contentTranslateX, {
+      toValue: direction * SCREEN_WIDTH,
+      duration: 220,
+      useNativeDriver: true,
+    }).start(() => {
+      setActiveTab(tab);
+      setActiveFilter("all");
+      setSearch("");
+
+      contentTranslateX.setValue(direction * -SCREEN_WIDTH);
+
+      Animated.timing(contentTranslateX, {
+        toValue: 0,
+        duration: 260,
+        useNativeDriver: true,
+      }).start(() => {
+        setAnimatingTab(false);
+      });
+    });
+  };
+
+  const openActionMenu = () => {
+    actionAnimations.forEach((animation) => {
+      animation.setValue(0);
+    });
+
+    setMenuOpen(true);
+
+    Animated.parallel([
+      Animated.spring(fabRotation, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 80,
+        friction: 8,
+      }),
+      Animated.stagger(
+        70,
+        [...actionAnimations].reverse().map((animation) =>
+          Animated.spring(animation, {
+            toValue: 1,
+            useNativeDriver: true,
+            tension: 90,
+            friction: 9,
+          }),
+        ),
+      ),
+    ]).start();
+  };
+
+  const closeActionMenu = () => {
+    Animated.parallel([
+      Animated.spring(fabRotation, {
+        toValue: 0,
+        useNativeDriver: true,
+        tension: 80,
+        friction: 8,
+      }),
+      Animated.stagger(
+        40,
+        actionAnimations.map((animation) =>
+          Animated.timing(animation, {
+            toValue: 0,
+            duration: 140,
+            useNativeDriver: true,
+          }),
+        ),
+      ),
+    ]).start(() => {
+      setMenuOpen(false);
+    });
+  };
+
+  const toggleActionMenu = () => {
+    if (menuOpen) {
+      closeActionMenu();
+    } else {
+      openActionMenu();
+    }
+  };
+
+  const rotateFab = fabRotation.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "45deg"],
+  });
 
   const filteredTasks = useMemo(() => {
     const keyword = normalizeText(search);
-    const currentUserName = normalizeText(USER_NAME);
+    const currentUserName = normalizeText(userName);
 
     return tasks.filter((task) => {
       let matchesTab = false;
@@ -204,7 +281,7 @@ export default function TasksScreen() {
       }
 
       if (activeFilter === "overdue") {
-        matchesStatus = isOverdue(task);
+        matchesStatus = isTaskOverdue(task);
       }
 
       if (!matchesStatus) return false;
@@ -218,7 +295,7 @@ export default function TasksScreen() {
         normalizeText(task.type_task_name).includes(keyword)
       );
     });
-  }, [tasks, activeTab, activeFilter, search]);
+  }, [tasks, activeTab, activeFilter, search, userName]);
 
   const getTabLabel = useCallback(
     (tab: TopTab) => {
@@ -258,7 +335,7 @@ export default function TasksScreen() {
 
   const getStatusStyle = useCallback(
     (task: TaskApiItem) => {
-      if (isOverdue(task)) {
+      if (isTaskOverdue(task)) {
         return {
           backgroundColor: isDark ? "rgba(220,53,69,0.18)" : "#FDEBEC",
           textColor: "#DC3545",
@@ -277,7 +354,7 @@ export default function TasksScreen() {
       if (STATUS_MAP.processing.includes(task.status)) {
         return {
           backgroundColor: isDark ? "rgba(25,118,233,0.18)" : "#E8F2FF",
-          textColor: PRIMARY,
+          textColor: Colors.primary,
           label: t("tasks.processing"),
         };
       }
@@ -299,9 +376,11 @@ export default function TasksScreen() {
       }
 
       return {
-        backgroundColor: isDark ? "rgba(25,118,233,0.18)" : PRIMARY_BACKGROUND,
-        textColor: PRIMARY,
-        label: getStatusLabel(task.status),
+        backgroundColor: isDark
+          ? "rgba(25,118,233,0.18)"
+          : Colors.light.background,
+        textColor: Colors.primary,
+        label: getTaskStatusLabel(task.status),
       };
     },
     [isDark, t],
@@ -368,7 +447,7 @@ export default function TasksScreen() {
                 key={`${item.task_id}-star-${index}`}
                 name="star-outline"
                 size={23}
-                color={STAR}
+                color={Colors.warning}
               />
             ))}
           </View>
@@ -429,14 +508,16 @@ export default function TasksScreen() {
               <Ionicons
                 name="time-outline"
                 size={20}
-                color={isOverdue(item) ? "#DC3545" : colors.textSecondary}
+                color={isTaskOverdue(item) ? "#DC3545" : colors.textSecondary}
               />
 
               <Text
                 style={[
                   styles.timeText,
                   {
-                    color: isOverdue(item) ? "#DC3545" : colors.textSecondary,
+                    color: isTaskOverdue(item)
+                      ? "#DC3545"
+                      : colors.textSecondary,
                   },
                 ]}
               >
@@ -473,7 +554,7 @@ export default function TasksScreen() {
                 {
                   backgroundColor: isDark
                     ? "rgba(25,118,233,0.18)"
-                    : PRIMARY_BACKGROUND,
+                    : Colors.light.background,
                 },
               ]}
             >
@@ -493,246 +574,289 @@ export default function TasksScreen() {
     ],
   );
 
-  const handleChangeTab = (tab: TopTab) => {
-    setActiveTab(tab);
-    setActiveFilter("all");
-  };
-
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          backgroundColor: colors.background,
-        },
-      ]}
-    >
+    <AnimatedTabScreen>
       <View
         style={[
-          styles.tabs,
+          styles.container,
           {
-            backgroundColor: colors.surface,
-            borderBottomColor: colors.border,
+            backgroundColor: colors.background,
           },
         ]}
       >
-        {topTabs.map((tab) => {
-          const isActive = activeTab === tab;
-
-          return (
-            <TouchableOpacity
-              key={tab}
-              style={styles.tab}
-              activeOpacity={0.8}
-              onPress={() => handleChangeTab(tab)}
-            >
-              <Text
-                style={[
-                  styles.tabText,
-                  {
-                    color: isActive ? PRIMARY : colors.textSecondary,
-                  },
-                ]}
-              >
-                {getTabLabel(tab)}
-              </Text>
-
-              {isActive && <View style={styles.tabIndicator} />}
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      <View style={styles.content}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.filterScroll}
-          contentContainerStyle={styles.filterContent}
+        <View
+          style={[
+            styles.tabs,
+            {
+              backgroundColor: colors.surface,
+              borderBottomColor: colors.border,
+            },
+          ]}
         >
-          {filters.map((filter) => {
-            const isActive = activeFilter === filter;
+          {topTabs.map((tab) => {
+            const isActive = activeTab === tab;
 
             return (
               <TouchableOpacity
-                key={filter}
+                key={tab}
+                style={styles.tab}
                 activeOpacity={0.8}
-                style={[
-                  styles.filterButton,
-                  {
-                    backgroundColor: isActive ? PRIMARY : colors.surface,
-                    borderColor: isActive ? PRIMARY : colors.border,
-                  },
-                ]}
-                onPress={() => setActiveFilter(filter)}
+                disabled={animatingTab}
+                onPress={() => handleChangeTab(tab)}
               >
                 <Text
                   style={[
-                    styles.filterText,
+                    styles.tabText,
                     {
-                      color: isActive ? "#FFFFFF" : colors.text,
+                      color: isActive ? Colors.primary : colors.textSecondary,
                     },
                   ]}
                 >
-                  {getFilterLabel(filter)}
+                  {getTabLabel(tab)}
                 </Text>
+
+                {isActive && <View style={styles.tabIndicator} />}
               </TouchableOpacity>
             );
           })}
-        </ScrollView>
-
-        <View style={styles.searchRow}>
-          <View
-            style={[
-              styles.searchBox,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-              },
-            ]}
-          >
-            <TextInput
-              value={search}
-              onChangeText={setSearch}
-              placeholder={t("tasks.searchPlaceholder")}
-              placeholderTextColor={colors.textSecondary}
-              style={[
-                styles.searchInput,
-                {
-                  color: colors.text,
-                },
-              ]}
-            />
-
-            <Ionicons
-              name="search-outline"
-              size={25}
-              color={colors.textSecondary}
-            />
-          </View>
-
-          <TouchableOpacity
-            activeOpacity={0.8}
-            style={[
-              styles.calendarButton,
-              {
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-              },
-            ]}
-          >
-            <Ionicons name="calendar-outline" size={27} color={PRIMARY} />
-          </TouchableOpacity>
         </View>
 
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={PRIMARY} />
-          </View>
-        ) : (
-          <FlatList
-            data={filteredTasks}
-            keyExtractor={(item) => item.task_id.toString()}
-            renderItem={renderTask}
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={[
-              styles.listContent,
-              filteredTasks.length === 0 && styles.emptyListContent,
-            ]}
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Ionicons
-                  name="briefcase-outline"
-                  size={42}
-                  color={colors.textSecondary}
-                />
+        <Animated.View
+          style={[
+            styles.content,
+            {
+              transform: [{ translateX: contentTranslateX }],
+            },
+          ]}
+        >
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.filterScroll}
+            contentContainerStyle={styles.filterContent}
+          >
+            {filters.map((filter) => {
+              const isActive = activeFilter === filter;
 
-                <Text
+              return (
+                <TouchableOpacity
+                  key={filter}
+                  activeOpacity={0.8}
                   style={[
-                    styles.emptyText,
+                    styles.filterButton,
                     {
-                      color: colors.textSecondary,
+                      backgroundColor: isActive
+                        ? Colors.primary
+                        : colors.surface,
+                      borderColor: isActive ? Colors.primary : colors.border,
+                    },
+                  ]}
+                  onPress={() => handleChangeFilter(filter)}
+                >
+                  <Text
+                    style={[
+                      styles.filterText,
+                      {
+                        color: isActive ? "#FFFFFF" : colors.text,
+                      },
+                    ]}
+                  >
+                    {getFilterLabel(filter)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+
+          <View style={styles.searchRow}>
+            <View
+              style={[
+                styles.searchBox,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              <TextInput
+                value={search}
+                onChangeText={setSearch}
+                placeholder={t("tasks.searchPlaceholder")}
+                placeholderTextColor={colors.textSecondary}
+                style={[
+                  styles.searchInput,
+                  {
+                    color: colors.text,
+                  },
+                ]}
+              />
+
+              <Ionicons
+                name="search-outline"
+                size={25}
+                color={colors.textSecondary}
+              />
+            </View>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              style={[
+                styles.calendarButton,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              <Ionicons
+                name="calendar-outline"
+                size={27}
+                color={Colors.primary}
+              />
+            </TouchableOpacity>
+          </View>
+
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={Colors.primary} />
+            </View>
+          ) : filterLoading ? (
+            <Skeleton />
+          ) : (
+            <FlatList
+              data={filteredTasks}
+              keyExtractor={(item) => item.task_id.toString()}
+              renderItem={renderTask}
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={[
+                styles.listContent,
+                filteredTasks.length === 0 && styles.emptyListContent,
+              ]}
+              ListEmptyComponent={
+                <View style={styles.emptyContainer}>
+                  <Ionicons
+                    name="briefcase-outline"
+                    size={42}
+                    color={colors.textSecondary}
+                  />
+
+                  <Text
+                    style={[
+                      styles.emptyText,
+                      {
+                        color: colors.textSecondary,
+                      },
+                    ]}
+                  >
+                    {t("tasks.empty")}
+                  </Text>
+                </View>
+              }
+            />
+          )}
+        </Animated.View>
+
+        {menuOpen && (
+          <Pressable
+            style={[
+              styles.menuOverlay,
+              {
+                backgroundColor: isDark
+                  ? "rgba(0,0,0,0.72)"
+                  : "rgba(255,255,255,0.82)",
+              },
+            ]}
+            onPress={closeActionMenu}
+          />
+        )}
+
+        {menuOpen && (
+          <View style={styles.floatingMenu} pointerEvents="box-none">
+            {floatingActions.map((action, index) => {
+              const animation = actionAnimations[index];
+
+              const translateY = animation.interpolate({
+                inputRange: [0, 1],
+                outputRange: [35, 0],
+              });
+
+              const scale = animation.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.8, 1],
+              });
+
+              return (
+                <Animated.View
+                  key={action.id}
+                  style={[
+                    styles.actionRow,
+                    {
+                      opacity: animation,
+                      transform: [{ translateY }, { scale }],
                     },
                   ]}
                 >
-                  {t("tasks.empty")}
-                </Text>
-              </View>
-            }
-          />
-        )}
-      </View>
+                  <View style={styles.actionLabel}>
+                    <Text style={styles.actionLabelText}>
+                      {t(`tasks.${action.label}`)}
+                    </Text>
+                  </View>
 
-      {menuOpen && (
-        <Pressable
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    style={[
+                      styles.actionButton,
+                      {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.border,
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name={action.icon}
+                      size={27}
+                      color={Colors.primary}
+                    />
+                  </TouchableOpacity>
+                </Animated.View>
+              );
+            })}
+          </View>
+        )}
+
+        <TouchableOpacity
+          activeOpacity={0.85}
           style={[
-            styles.menuOverlay,
+            styles.mainFloatingButton,
             {
-              backgroundColor: isDark
-                ? "rgba(0,0,0,0.72)"
-                : "rgba(255,255,255,0.82)",
+              backgroundColor: colors.surface,
+              borderColor: colors.border,
             },
           ]}
-          onPress={() => setMenuOpen(false)}
-        />
-      )}
-
-      {menuOpen && (
-        <View style={styles.floatingMenu}>
-          {floatingActions.map((action) => (
-            <View key={action.id} style={styles.actionRow}>
-              <View style={styles.actionLabel}>
-                <Text style={styles.actionLabelText}>
-                  {t(`tasks.${action.label}`)}
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                activeOpacity={0.8}
-                style={[
-                  styles.actionButton,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                  },
-                ]}
-              >
-                <Ionicons name={action.icon} size={27} color={PRIMARY} />
-              </TouchableOpacity>
-            </View>
-          ))}
-        </View>
-      )}
-
-      <TouchableOpacity
-        activeOpacity={0.85}
-        style={[
-          styles.mainFloatingButton,
-          {
-            backgroundColor: colors.surface,
-            borderColor: colors.border,
-          },
-        ]}
-        onPress={() => setMenuOpen((value) => !value)}
-      >
-        <Ionicons
-          name={menuOpen ? "remove" : "add"}
-          size={36}
-          color={menuOpen ? colors.text : PRIMARY}
-        />
-      </TouchableOpacity>
-    </View>
+          onPress={toggleActionMenu}
+        >
+          <Animated.View
+            style={{
+              transform: [{ rotate: rotateFab }],
+            }}
+          >
+            <Ionicons name="add" size={36} color={Colors.primary} />
+          </Animated.View>
+        </TouchableOpacity>
+      </View>
+    </AnimatedTabScreen>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    overflow: "hidden",
   },
   tabs: {
-    height: 58,
+    height: 48,
     flexDirection: "row",
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
@@ -743,7 +867,7 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   tabText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "500",
   },
   tabIndicator: {
@@ -752,10 +876,11 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 3,
-    backgroundColor: PRIMARY,
+    backgroundColor: Colors.primary,
   },
   content: {
     flex: 1,
+    width: "100%",
   },
   filterScroll: {
     flexGrow: 0,
@@ -777,7 +902,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   filterText: {
-    fontSize: 15,
+    fontSize: 12,
     fontWeight: "500",
   },
   searchRow: {
@@ -790,23 +915,24 @@ const styles = StyleSheet.create({
   },
   searchBox: {
     flex: 1,
-    height: 52,
+    height: 48,
     paddingHorizontal: 18,
     borderRadius: 26,
     borderWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
+    boxShadow: "0px 2px 8px rgba(0, 0, 0, 0.08)",
   },
   searchInput: {
     flex: 1,
     height: "100%",
-    fontSize: 16,
+    fontSize: 14,
     paddingVertical: 0,
   },
   calendarButton: {
-    width: 52,
-    height: 52,
+    width: 48,
+    height: 48,
     borderRadius: 26,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: "center",
@@ -832,13 +958,14 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   emptyText: {
-    fontSize: 15,
+    fontSize: 12,
   },
   taskCard: {
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
     padding: 16,
     marginBottom: 12,
+    boxShadow: "0px 8px 20px rgba(0, 0, 0, 0.12)",
   },
   taskHeader: {
     flexDirection: "row",
@@ -848,7 +975,7 @@ const styles = StyleSheet.create({
   },
   taskTitle: {
     flex: 1,
-    fontSize: 19,
+    fontSize: 14,
     fontWeight: "700",
     lineHeight: 26,
   },
@@ -858,13 +985,13 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   statusText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "600",
   },
   stars: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 4,
+    marginTop: 0,
   },
   peopleRow: {
     flexDirection: "row",
@@ -875,7 +1002,7 @@ const styles = StyleSheet.create({
   },
   peopleText: {
     flexShrink: 1,
-    fontSize: 15,
+    fontSize: 12,
   },
   timeContainer: {
     gap: 5,
@@ -887,7 +1014,7 @@ const styles = StyleSheet.create({
   },
   timeText: {
     flexShrink: 1,
-    fontSize: 15,
+    fontSize: 12,
   },
   taskFooter: {
     flexDirection: "row",
@@ -902,8 +1029,8 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   typeText: {
-    color: PRIMARY,
-    fontSize: 14,
+    color: Colors.primary,
+    fontSize: 12,
     fontWeight: "600",
   },
   menuOverlay: {
@@ -926,19 +1053,19 @@ const styles = StyleSheet.create({
   },
   actionLabel: {
     maxWidth: 280,
-    backgroundColor: PRIMARY,
+    backgroundColor: Colors.primary,
     borderRadius: 6,
     paddingHorizontal: 14,
     paddingVertical: 11,
   },
   actionLabelText: {
     color: "#FFFFFF",
-    fontSize: 15,
+    fontSize: 12,
     fontWeight: "500",
   },
   actionButton: {
-    width: 58,
-    height: 58,
+    width: 48,
+    height: 48,
     borderRadius: 29,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: "center",
@@ -956,8 +1083,8 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 18,
     bottom: 22,
-    width: 62,
-    height: 62,
+    width: 48,
+    height: 48,
     borderRadius: 31,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: "center",
