@@ -1,3 +1,5 @@
+import type { ImagePickerAsset } from "expo-image-picker";
+
 export type TaskApiItem = {
   info_customer: unknown | null;
   creator: number;
@@ -46,3 +48,49 @@ export type TaskRequest = {
   limit?: number;
   creator?: number;
 };
+
+export interface CreateTaskCommentRequest {
+  content: string;
+  task_id: number;
+  receiver: number;
+  images?: ImagePickerAsset[];
+}
+
+export interface CreateTaskCommentResponse {
+  result: boolean;
+  message: string;
+  status: number;
+  data: {
+    content: string;
+    user_id: number;
+    task_id: number;
+    receiver: number;
+    created_at: number;
+    url_img: string;
+    id: number;
+  };
+  options: object;
+}
+
+export interface TaskComment {
+  id: number;
+  content: string;
+  parent_id: number | null;
+  url_img: string;
+  task_id: number;
+  receiver: number;
+  created_at: number;
+  user_id: number;
+  sender_name: string;
+  sender_avatar: string | null;
+}
+
+export interface TaskCommentResponse {
+  result: boolean;
+  message: string;
+  status: number;
+  totalPage: number;
+  totalRecord: number;
+  data: TaskComment[];
+  options: object;
+}
