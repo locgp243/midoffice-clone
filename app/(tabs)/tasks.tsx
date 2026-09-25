@@ -859,12 +859,15 @@ const styles = StyleSheet.create({
     height: 48,
     flexDirection: "row",
     borderBottomWidth: StyleSheet.hairlineWidth,
+    justifyContent: "space-around",
   },
+
   tab: {
-    flex: 1,
+    flex: 0,
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
+    paddingHorizontal: 8,
   },
   tabText: {
     fontSize: 14,

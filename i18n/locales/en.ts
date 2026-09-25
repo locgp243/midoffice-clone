@@ -159,7 +159,7 @@ const en = {
     empty: "No tasks yet.",
     mine: "My Tasks",
     created: "Created",
-    customerRequest: "Customer Req.",
+    customerRequest: "Customer Req",
     staff: "Employees",
     all: "All",
     pending: "Pending",
@@ -203,12 +203,98 @@ const en = {
   },
 
   home: {
-    greeting: "Hello",
     title: "Home",
-  },
+    greeting: "Hello",
+    current: "CURRENT",
+    month: "{{month}} {{year}}",
+    checkIn: "Check in",
 
+    summary: {
+      kpi: "KPI",
+      tasks: "Tasks",
+      attendance: "Attendance",
+    },
+
+    kpi: {
+      title: "MONTHLY KPI",
+      point: "{{value}} POINTS",
+      needImprovement: "NEEDS IMPROVEMENT",
+      description: "Complete work targets effectively",
+    },
+
+    tasks: {
+      title: "TASKS",
+      total: "Total",
+      completed: "Completed",
+      doing: "In progress",
+      overdue: "Overdue",
+      lateCompleted: "Completed late",
+    },
+
+    attendance: {
+      title: "ATTENDANCE",
+      presentPercent: "present",
+      workingDays: "Working days",
+      present: "Present",
+      absent: "Absent",
+
+      status: {
+        onTime: "On time",
+        late: "Late",
+        earlyLeave: "Left early",
+        lateAndEarly: "Late/Early leave",
+        missingCheckout: "Missing check-out",
+        leaveWithPermission: "Approved leave",
+        leaveWithoutPermission: "Unapproved leave",
+        unknown: "Unknown",
+        sale: "Sales",
+        holiday: "Holiday",
+      },
+
+      detail: {
+        onTimeRate: "On-time rate:",
+        late: "Late:",
+        earlyLeave: "Left early:",
+        days: "{{value}} days",
+      },
+    },
+  },
   menu: {
     title: "Menu",
+
+    sections: {
+      personal: "Personal",
+      internal: "Internal",
+      library: "Library",
+      lookup: "Lookup",
+    },
+
+    items: {
+      attendance: "Attendance",
+      attendanceList: "Attendance List",
+      leaveRequest: "Leave / Resignation Request",
+      myMeetingSchedule: "My Meeting Schedule",
+      proposal: "Proposals",
+      initiative: "Initiatives",
+      taskStatistics: "Task Statistics",
+      businessReport: "Business Department Report",
+      monthlyDepartmentPlan: "Monthly Department Plan",
+      teamPlan: "Team Plan",
+      weeklyKpiReport: "Weekly KPI Report",
+      monthlyKpiReport: "Monthly KPI Report",
+      myDutySchedule: "My Duty Schedule",
+
+      meetingRoomBooking: "Meeting Room Booking",
+      rulesAndPenalties: "Rules & Violation Penalties",
+      internalNews: "Internal News",
+      warranty: "Warranty",
+
+      internalLibrary: "Internal Library",
+      customerServiceProcess: "Customer Service Process",
+
+      officeHoroscope: "Office Horoscope",
+      lunarCalendar: "Lunar Calendar",
+    },
   },
 };
 
