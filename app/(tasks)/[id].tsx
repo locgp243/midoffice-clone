@@ -1,7 +1,9 @@
 import { useAppTheme } from "@/hooks/useAppTheme";
 import { taskServices } from "@/services/taskServices";
-import { TaskApiItem } from "@/types/Task";
+import { useAuthStore } from "@/store/useAuthStore";
+import { TaskApiItem, TaskComment } from "@/types/Task";
 import { formatDateTime } from "@/utils/formatDateTime";
+import { getImageUrl } from "@/utils/imageUrl";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
@@ -12,6 +14,7 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -23,6 +26,9 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
+
+import * as ImagePicker from "expo-image-picker";
+
 const PRIMARY = "#1976E9";
 const STAR = "#FFC928";
 const SUCCESS = "#28A745";
@@ -36,33 +42,58 @@ const getStatusText = (status: number) => {
   return `Status ${status}`;
 };
 
-import { useAuthStore } from "@/store/useAuthStore";
-import { getImageUrl } from "@/utils/imageUrl";
 export default function TaskDetailScreen() {
   const params = useLocalSearchParams<{
     id: string;
-    creator: string;
+    creator?: string;
   }>();
 
   const { colors, isDark } = useAppTheme();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+
   const [task, setTask] = useState<TaskApiItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
   const [commentModalVisible, setCommentModalVisible] = useState(false);
-  const [comment, setComment] = useState("");
+  const [commentText, setCommentText] = useState("");
+  const [sendingComment, setSendingComment] = useState(false);
+  const [commentImages, setCommentImages] = useState<
+    ImagePicker.ImagePickerAsset[]
+  >([]);
+
+  const [imagePreviewVisible, setImagePreviewVisible] = useState(false);
+  const [previewImages, setPreviewImages] = useState<string[]>([]);
+  const [previewIndex, setPreviewIndex] = useState(0);
+
+  const openImagePreview = (images: string[], index: number) => {
+    setPreviewImages(images);
+    setPreviewIndex(index);
+    setImagePreviewVisible(true);
+  };
+
+  const closeImagePreview = () => {
+    setImagePreviewVisible(false);
+    setPreviewImages([]);
+    setPreviewIndex(0);
+  };
+
+  const [comments, setComments] = useState<TaskComment[]>([]);
+  const [loadingComments, setLoadingComments] = useState(false);
 
   const userId = useAuthStore((state) => state.userId);
-  const userDetail = useAuthStore((status) => status.userDetail);
-  const userDetailAvatar = userDetail?.avatar;
-  console.log("check avatar: ", userDetailAvatar);
-  console.log("check avatar 2: ", getImageUrl(userDetailAvatar));
+  const userDetail = useAuthStore((state) => state.userDetail);
 
-  const avatarUrl = userDetailAvatar ? getImageUrl(userDetailAvatar) : null;
+  const userDetailAvatar = userDetail?.avatar;
+
+  const avatarUrl = userDetailAvatar
+    ? (getImageUrl(userDetailAvatar) ?? undefined)
+    : undefined;
 
   const taskId = Number(params.id);
-  const creator = Number(params.creator);
+
+  const creator = params.creator ? Number(params.creator) : undefined;
 
   const fetchTaskDetail = useCallback(async () => {
     if (!taskId || Number.isNaN(taskId) || !userId) {
@@ -74,30 +105,53 @@ export default function TaskDetailScreen() {
     try {
       setLoading(true);
 
-      console.log("TASK DETAIL PARAMS:", {
-        taskId,
-        userId,
-      });
-
       const data = await taskServices.getDetail(taskId, creator);
 
-      console.log("TASK DETAIL DATA:", data);
+      console.log("check task:", data);
 
       setTask(data);
-    } catch (error) {
-      console.log("GET TASK DETAIL ERROR:", error);
+    } catch (error: any) {
+      console.log("lõi:", error?.response?.data ?? error);
+
       setTask(null);
     } finally {
       setLoading(false);
     }
-  }, [taskId, userId]);
+  }, [taskId, creator, userId]);
 
   useEffect(() => {
     fetchTaskDetail();
   }, [fetchTaskDetail]);
 
+  const fetchComments = useCallback(async () => {
+    if (!taskId || Number.isNaN(taskId)) {
+      setComments([]);
+      return;
+    }
+
+    try {
+      setLoadingComments(true);
+
+      const data = await taskServices.getTaskComments(taskId);
+
+      setComments(data);
+    } catch (error: any) {
+      console.log("log lỗi comment:", error?.response?.data ?? error);
+
+      setComments([]);
+    } finally {
+      setLoadingComments(false);
+    }
+  }, [taskId]);
+
+  useEffect(() => {
+    fetchComments();
+  }, [fetchComments]);
+
   const handleRefresh = useCallback(async () => {
-    if (!taskId || Number.isNaN(taskId) || !userId) return;
+    if (!taskId || Number.isNaN(taskId) || !userId) {
+      return;
+    }
 
     try {
       setRefreshing(true);
@@ -105,19 +159,108 @@ export default function TaskDetailScreen() {
       const data = await taskServices.getDetail(taskId, creator);
 
       setTask(data);
-    } catch (error) {
-      console.log("REFRESH TASK DETAIL ERROR:", error);
+    } catch (error: any) {
+      console.log("lỗi khi reshet:", error?.response?.data ?? error);
     } finally {
       setRefreshing(false);
     }
-  }, [taskId, userId]);
+  }, [taskId, creator, userId]);
+
+  const openCommentModal = () => {
+    setCommentText("");
+    setCommentModalVisible(true);
+  };
+
   const closeCommentModal = () => {
+    if (sendingComment) return;
+
+    setCommentText("");
+    setCommentImages([]);
     setCommentModalVisible(false);
+  };
+
+  const handleRemoveCommentImage = (index: number) => {
+    setCommentImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handlePickCommentImages = async () => {
+    try {
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permission.granted) {
+        console.log("Không có quyền truy cập thư viện ảnh");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsMultipleSelection: true,
+        quality: 0.8,
+        selectionLimit: 5,
+      });
+
+      if (result.canceled) return;
+
+      setCommentImages((prev) => {
+        const images = [...prev, ...result.assets];
+
+        return images.slice(0, 5);
+      });
+    } catch (error) {
+      console.log("lỗi ảnh comment:", error);
+    }
+  };
+
+  const handleSendComment = async () => {
+    const content = commentText.trim();
+
+    if ((!content && commentImages.length === 0) || !task || sendingComment) {
+      return;
+    }
+
+    if (!task.receiver) {
+      console.log("Không có người nhận");
+      return;
+    }
+
+    try {
+      setSendingComment(true);
+
+      const res = await taskServices.createTaskComment({
+        content,
+        task_id: task.task_id,
+        receiver: task.receiver,
+        images: commentImages,
+      });
+
+      if (!res.result) {
+        console.log("Gửi comment thất bại:", res.message);
+        return;
+      }
+
+      setCommentText("");
+      setCommentImages([]);
+      setCommentModalVisible(false);
+
+      await fetchComments();
+    } catch (error: any) {
+      console.log("lỗi comment: ", error?.response?.data ?? error);
+    } finally {
+      setSendingComment(false);
+    }
   };
 
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: colors.background,
+          },
+        ]}
+      >
         <SafeAreaView edges={["top"]} style={styles.headerSafeArea}>
           <View style={styles.header}>
             <TouchableOpacity
@@ -145,7 +288,14 @@ export default function TaskDetailScreen() {
 
   if (!task) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: colors.background,
+          },
+        ]}
+      >
         <SafeAreaView edges={["top"]} style={styles.headerSafeArea}>
           <View style={styles.header}>
             <TouchableOpacity
@@ -188,6 +338,7 @@ export default function TaskDetailScreen() {
             onPress={fetchTaskDetail}
           >
             <Ionicons name="refresh" size={18} color="#FFFFFF" />
+
             <Text style={styles.retryButtonText}>Thử lại</Text>
           </TouchableOpacity>
         </View>
@@ -198,7 +349,14 @@ export default function TaskDetailScreen() {
   const isCompleted = task.status === 3;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.background,
+        },
+      ]}
+    >
       <SafeAreaView edges={["top"]} style={styles.headerSafeArea}>
         <View style={styles.header}>
           <TouchableOpacity
@@ -239,10 +397,24 @@ export default function TaskDetailScreen() {
           },
         ]}
       >
-        <View style={[styles.card, { backgroundColor: colors.surface }]}>
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: colors.surface,
+            },
+          ]}
+        >
           <View style={styles.taskHeader}>
             <View style={styles.taskTitleContainer}>
-              <Text style={[styles.taskTitle, { color: colors.text }]}>
+              <Text
+                style={[
+                  styles.taskTitle,
+                  {
+                    color: colors.text,
+                  },
+                ]}
+              >
                 {task.name}
               </Text>
 
@@ -453,15 +625,33 @@ export default function TaskDetailScreen() {
         </SectionCard>
 
         <SectionCard
-          title={t("taskDetail.comments")}
+          title={`${t("taskDetail.comments")} (${comments.length})`}
           colors={colors}
-          onAddPress={() => setCommentModalVisible(true)}
+          onAddPress={openCommentModal}
         >
-          <EmptySection
-            icon="chatbubble-outline"
-            text={t("taskDetail.noComments")}
-            color={colors.textSecondary}
-          />
+          {loadingComments ? (
+            <View style={styles.commentLoading}>
+              <ActivityIndicator size="small" color={PRIMARY} />
+            </View>
+          ) : comments.length === 0 ? (
+            <EmptySection
+              icon="chatbubble-outline"
+              text={t("taskDetail.noComments")}
+              color={colors.textSecondary}
+            />
+          ) : (
+            <View style={styles.commentList}>
+              {comments.map((comment) => (
+                <CommentItem
+                  key={comment.id}
+                  comment={comment}
+                  colors={colors}
+                  isDark={isDark}
+                  onImagePress={openImagePreview}
+                />
+              ))}
+            </View>
+          )}
         </SectionCard>
 
         <SectionCard title={`${t("taskDetail.members")} (1)`} colors={colors}>
@@ -477,9 +667,11 @@ export default function TaskDetailScreen() {
                   },
                 ]}
               >
-                {userDetailAvatar ? (
+                {avatarUrl ? (
                   <Image
-                    source={{ uri: avatarUrl as string }}
+                    source={{
+                      uri: avatarUrl,
+                    }}
                     style={styles.avatarImage}
                   />
                 ) : (
@@ -488,7 +680,14 @@ export default function TaskDetailScreen() {
               </View>
 
               <View style={styles.memberInfo}>
-                <Text style={[styles.memberName, { color: colors.text }]}>
+                <Text
+                  style={[
+                    styles.memberName,
+                    {
+                      color: colors.text,
+                    },
+                  ]}
+                >
                   {task.username || "--"}
                 </Text>
 
@@ -613,6 +812,7 @@ export default function TaskDetailScreen() {
           </TouchableOpacity>
         </View>
       )}
+
       <Modal
         visible={commentModalVisible}
         transparent
@@ -653,6 +853,7 @@ export default function TaskDetailScreen() {
 
               <TouchableOpacity
                 activeOpacity={0.7}
+                disabled={sendingComment}
                 style={styles.modalCloseButton}
                 onPress={closeCommentModal}
               >
@@ -682,7 +883,9 @@ export default function TaskDetailScreen() {
               >
                 {avatarUrl ? (
                   <Image
-                    source={{ uri: avatarUrl as string }}
+                    source={{
+                      uri: avatarUrl,
+                    }}
                     style={styles.avatarImage}
                   />
                 ) : (
@@ -691,11 +894,12 @@ export default function TaskDetailScreen() {
               </View>
 
               <TextInput
-                value={comment}
-                onChangeText={setComment}
+                value={commentText}
+                onChangeText={setCommentText}
                 placeholder={t("taskDetail.commentPlaceholder")}
                 placeholderTextColor={colors.textSecondary}
                 multiline
+                editable={!sendingComment}
                 textAlignVertical="top"
                 style={[
                   styles.commentInput,
@@ -708,13 +912,77 @@ export default function TaskDetailScreen() {
               />
             </View>
 
+            <View style={styles.commentImageActions}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={handlePickCommentImages}
+                disabled={sendingComment}
+                style={[
+                  styles.pickImageButton,
+                  {
+                    borderColor: colors.border,
+                    backgroundColor: colors.background,
+                  },
+                ]}
+              >
+                <Ionicons name="images-outline" size={19} color={PRIMARY} />
+
+                <Text style={styles.pickImageText}>Chọn ảnh từ thư viện</Text>
+              </TouchableOpacity>
+
+              {commentImages.length > 0 && (
+                <Text
+                  style={[
+                    styles.imageCountText,
+                    {
+                      color: colors.textSecondary,
+                    },
+                  ]}
+                >
+                  {commentImages.length}/5
+                </Text>
+              )}
+            </View>
+
+            {commentImages.length > 0 && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.selectedImages}
+              >
+                {commentImages.map((image, index) => (
+                  <View
+                    key={`${image.uri}-${index}`}
+                    style={styles.selectedImageWrapper}
+                  >
+                    <Image
+                      source={{ uri: image.uri }}
+                      style={styles.selectedImage}
+                    />
+
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      style={styles.removeSelectedImage}
+                      onPress={() => handleRemoveCommentImage(index)}
+                    >
+                      <Ionicons name="close" size={14} color="#FFFFFF" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+
             <View style={styles.commentActions}>
               <TouchableOpacity
                 activeOpacity={0.8}
+                disabled={sendingComment}
                 style={[
                   styles.cancelCommentButton,
                   {
                     borderColor: colors.border,
+                  },
+                  sendingComment && {
+                    opacity: 0.5,
                   },
                 ]}
                 onPress={closeCommentModal}
@@ -733,22 +1001,229 @@ export default function TaskDetailScreen() {
 
               <TouchableOpacity
                 activeOpacity={0.8}
-                disabled={!comment.trim()}
+                onPress={handleSendComment}
+                disabled={
+                  (!commentText.trim() && commentImages.length === 0) ||
+                  sendingComment
+                }
                 style={[
                   styles.sendCommentButton,
-                  !comment.trim() && styles.sendCommentButtonDisabled,
+                  ((!commentText.trim() && commentImages.length === 0) ||
+                    sendingComment) &&
+                    styles.sendCommentButtonDisabled,
                 ]}
               >
-                <Ionicons name="send" size={17} color="#FFFFFF" />
+                {sendingComment ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons name="send" size={17} color="#FFFFFF" />
 
-                <Text style={styles.sendCommentText}>
-                  {t("taskDetail.send")}
-                </Text>
+                    <Text style={styles.sendCommentText}>
+                      {t("taskDetail.send")}
+                    </Text>
+                  </>
+                )}
               </TouchableOpacity>
             </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      <Modal
+        visible={imagePreviewVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeImagePreview}
+      >
+        <Pressable style={styles.previewOverlay} onPress={closeImagePreview}>
+          <Pressable
+            style={[
+              styles.previewBox,
+              {
+                backgroundColor: colors.surface,
+              },
+            ]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <TouchableOpacity
+              style={styles.previewCloseButton}
+              activeOpacity={0.8}
+              onPress={closeImagePreview}
+            >
+              <Ionicons name="close" size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+
+            {previewImages.length > 0 && (
+              <>
+                <Image
+                  source={{
+                    uri: previewImages[previewIndex],
+                  }}
+                  style={styles.previewImage}
+                  resizeMode="contain"
+                />
+
+                {previewImages.length > 1 && (
+                  <>
+                    {previewIndex > 0 && (
+                      <TouchableOpacity
+                        style={[styles.previewArrow, styles.previewArrowLeft]}
+                        onPress={() => setPreviewIndex((prev) => prev - 1)}
+                      >
+                        <Ionicons
+                          name="chevron-back"
+                          size={26}
+                          color="#FFFFFF"
+                        />
+                      </TouchableOpacity>
+                    )}
+
+                    {previewIndex < previewImages.length - 1 && (
+                      <TouchableOpacity
+                        style={[styles.previewArrow, styles.previewArrowRight]}
+                        onPress={() => setPreviewIndex((prev) => prev + 1)}
+                      >
+                        <Ionicons
+                          name="chevron-forward"
+                          size={26}
+                          color="#FFFFFF"
+                        />
+                      </TouchableOpacity>
+                    )}
+
+                    <View style={styles.previewCounter}>
+                      <Text style={styles.previewCounterText}>
+                        {previewIndex + 1} / {previewImages.length}
+                      </Text>
+                    </View>
+                  </>
+                )}
+              </>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </View>
+  );
+}
+
+function CommentItem({
+  comment,
+  colors,
+  isDark,
+  onImagePress,
+}: {
+  comment: TaskComment;
+  colors: any;
+  isDark: boolean;
+  onImagePress: (images: string[], index: number) => void;
+}) {
+  const avatarUrl = comment.sender_avatar
+    ? (getImageUrl(comment.sender_avatar) ?? undefined)
+    : undefined;
+
+  let images: string[] = [];
+
+  try {
+    const parsed = JSON.parse(comment.url_img || "[]");
+
+    if (Array.isArray(parsed)) {
+      images = parsed
+        .map((item) => getImageUrl(item))
+        .filter((item): item is string => !!item);
+    }
+  } catch (error) {
+    console.log("log lỗi:", error);
+  }
+
+  return (
+    <View
+      style={[
+        styles.commentItem,
+        {
+          borderBottomColor: colors.border,
+        },
+      ]}
+    >
+      <View
+        style={[
+          styles.commentItemAvatar,
+          {
+            backgroundColor: isDark ? "rgba(25,118,233,0.18)" : "#E8F2FF",
+          },
+        ]}
+      >
+        {avatarUrl ? (
+          <Image
+            source={{ uri: avatarUrl }}
+            style={styles.commentAvatarImage}
+          />
+        ) : (
+          <Ionicons name="person" size={20} color={PRIMARY} />
+        )}
+      </View>
+
+      <View style={styles.commentItemContent}>
+        <View style={styles.commentItemHeader}>
+          <Text
+            style={[
+              styles.commentSender,
+              {
+                color: colors.text,
+              },
+            ]}
+          >
+            {comment.sender_name || "--"}
+          </Text>
+
+          <Text
+            style={[
+              styles.commentTime,
+              {
+                color: colors.textSecondary,
+              },
+            ]}
+          >
+            {formatDateTime(comment.created_at)}
+          </Text>
+        </View>
+
+        {!!comment.content && (
+          <Text
+            style={[
+              styles.commentContent,
+              {
+                color: colors.text,
+              },
+            ]}
+          >
+            {comment.content}
+          </Text>
+        )}
+
+        {images.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.commentImages}
+          >
+            {images.map((imageUrl, index) => (
+              <TouchableOpacity
+                key={`${comment.id}-${index}`}
+                activeOpacity={0.8}
+                onPress={() => onImagePress(images, index)}
+              >
+                <Image
+                  source={{ uri: imageUrl }}
+                  style={styles.commentImage}
+                  resizeMode="cover"
+                />
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
+      </View>
     </View>
   );
 }
@@ -1233,6 +1708,216 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   sendCommentText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+
+  commentLoading: {
+    minHeight: 80,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  commentList: {
+    width: "100%",
+  },
+
+  commentItem: {
+    flexDirection: "row",
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+
+  commentItemAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+
+  commentAvatarImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 20,
+  },
+
+  commentItemContent: {
+    flex: 1,
+    marginLeft: 10,
+  },
+
+  commentItemHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+
+  commentSender: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
+  commentTime: {
+    fontSize: 10,
+  },
+
+  commentContent: {
+    marginTop: 5,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+
+  commentImages: {
+    gap: 8,
+    paddingTop: 10,
+    paddingRight: 10,
+  },
+
+  commentImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 8,
+    resizeMode: "cover",
+  },
+
+  commentImageActions: {
+    marginTop: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+
+  pickImageButton: {
+    height: 38,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+
+  pickImageText: {
+    color: PRIMARY,
+    fontSize: 12,
+    fontWeight: "600",
+  },
+
+  imageCountText: {
+    fontSize: 11,
+  },
+
+  selectedImages: {
+    gap: 10,
+    paddingTop: 12,
+    paddingRight: 8,
+  },
+
+  selectedImageWrapper: {
+    width: 74,
+    height: 74,
+    position: "relative",
+  },
+
+  selectedImage: {
+    width: 74,
+    height: 74,
+    borderRadius: 8,
+  },
+
+  removeSelectedImage: {
+    position: "absolute",
+    top: -5,
+    right: -5,
+    width: 21,
+    height: 21,
+    borderRadius: 11,
+    backgroundColor: "rgba(0,0,0,0.75)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  previewContainer: {
+    flex: 1,
+    backgroundColor: "#000000",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  previewOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+  },
+
+  previewBox: {
+    width: "100%",
+    maxWidth: 500,
+    height: "70%",
+    maxHeight: 650,
+    borderRadius: 16,
+    overflow: "hidden",
+    position: "relative",
+  },
+
+  previewImage: {
+    width: "100%",
+    height: "100%",
+  },
+
+  previewCloseButton: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    zIndex: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  previewArrow: {
+    position: "absolute",
+    top: "50%",
+    marginTop: -22,
+    zIndex: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  previewArrowLeft: {
+    left: 10,
+  },
+
+  previewArrowRight: {
+    right: 10,
+  },
+
+  previewCounter: {
+    position: "absolute",
+    bottom: 12,
+    alignSelf: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: "rgba(0,0,0,0.6)",
+  },
+
+  previewCounterText: {
     color: "#FFFFFF",
     fontSize: 12,
     fontWeight: "600",
