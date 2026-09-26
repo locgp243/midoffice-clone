@@ -59,10 +59,10 @@ export default function TasksScreen() {
 
   const filterTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const user = useAuthStore((state) => state.user);
+  const userId = useAuthStore((state) => state.userId);
+
   const userDetail = useAuthStore((state) => state.userDetail);
 
-  const userId = user?.userId;
   const userName = userDetail?.name;
 
   const fetchTasks = useCallback(async () => {
@@ -297,6 +297,16 @@ export default function TasksScreen() {
     });
   }, [tasks, activeTab, activeFilter, search, userName]);
 
+  useEffect(() => {
+    console.log("FILTERED TASKS:", filteredTasks);
+
+    const invalidTasks = filteredTasks.filter(
+      (task) => task?.task_id == null || task?.creator == null,
+    );
+
+    console.log("INVALID TASKS:", invalidTasks);
+  }, [filteredTasks]);
+
   const getTabLabel = useCallback(
     (tab: TopTab) => {
       switch (tab) {
@@ -393,15 +403,19 @@ export default function TasksScreen() {
       return (
         <TouchableOpacity
           activeOpacity={0.85}
-          onPress={() =>
+          onPress={() => {
+            if (item.task_id == null) return;
+
             router.push({
               pathname: "/(tasks)/[id]",
               params: {
-                id: item.task_id.toString(),
-                creator: item.creator.toString(),
+                id: String(item.task_id),
+                ...(item.creator != null
+                  ? { creator: String(item.creator) }
+                  : {}),
               },
-            })
-          }
+            });
+          }}
           style={[
             styles.taskCard,
             {
@@ -725,7 +739,9 @@ export default function TasksScreen() {
           ) : (
             <FlatList
               data={filteredTasks}
-              keyExtractor={(item) => item.task_id.toString()}
+              keyExtractor={(item, index) =>
+                `${item.task_id}-${item.task_receiver_id ?? index}`
+              }
               renderItem={renderTask}
               refreshing={refreshing}
               onRefresh={handleRefresh}

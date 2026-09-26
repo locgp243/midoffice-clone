@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
+  Alert,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -66,6 +67,188 @@ export default function TaskDetailScreen() {
   const [imagePreviewVisible, setImagePreviewVisible] = useState(false);
   const [previewImages, setPreviewImages] = useState<string[]>([]);
   const [previewIndex, setPreviewIndex] = useState(0);
+
+  const [editCommentVisible, setEditCommentVisible] = useState(false);
+
+  const [editingComment, setEditingComment] = useState<TaskComment | null>(
+    null,
+  );
+
+  const [editCommentText, setEditCommentText] = useState("");
+
+  const [deletingCommentId, setDeletingCommentId] = useState<number | null>(
+    null,
+  );
+
+  const [editExistingImages, setEditExistingImages] = useState<string[]>([]);
+
+  const [editNewImages, setEditNewImages] = useState<
+    ImagePicker.ImagePickerAsset[]
+  >([]);
+
+  const [updatingComment, setUpdatingComment] = useState(false);
+
+  const handleOpenEditComment = (comment: TaskComment) => {
+    let images: string[] = [];
+
+    try {
+      const parsed = JSON.parse(comment.url_img || "[]");
+
+      if (Array.isArray(parsed)) {
+        images = parsed.filter(
+          (item): item is string => typeof item === "string",
+        );
+      }
+    } catch (error) {
+      console.log("PARSE EDIT COMMENT IMAGES ERROR:", error);
+    }
+
+    console.log("EDIT EXISTING IMAGES:", images);
+
+    setEditingComment(comment);
+    setEditCommentText(comment.content ?? "");
+    setEditExistingImages(images);
+    setEditNewImages([]);
+    setEditCommentVisible(true);
+  };
+
+  const handleDeleteComment = (comment: TaskComment) => {
+    if (deletingCommentId !== null) return;
+
+    Alert.alert(
+      "Xóa bình luận",
+      "Bạn có chắc chắn muốn xóa bình luận này không?",
+      [
+        {
+          text: "Hủy",
+          style: "cancel",
+        },
+        {
+          text: "Xóa",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setDeletingCommentId(comment.id);
+
+              const res = await taskServices.deleteComment(comment.id);
+
+              console.log("DELETE COMMENT RESULT:", res);
+
+              if (!res.result) {
+                Alert.alert(
+                  "Không thể xóa",
+                  res.message || "Xóa bình luận thất bại.",
+                );
+                return;
+              }
+
+              setComments((prev) =>
+                prev.filter((item) => item.id !== comment.id),
+              );
+            } catch (error: any) {
+              console.log(
+                "DELETE COMMENT ERROR:",
+                error?.response?.data ?? error,
+              );
+
+              Alert.alert(
+                "Lỗi",
+                error?.response?.data?.message || "Không thể xóa bình luận.",
+              );
+            } finally {
+              setDeletingCommentId(null);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleRemoveExistingImage = (index: number) => {
+    setEditExistingImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handlePickEditImages = async () => {
+    try {
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permission.granted) return;
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsMultipleSelection: true,
+        quality: 0.8,
+        selectionLimit: 5,
+      });
+
+      if (result.canceled) return;
+
+      setEditNewImages((prev) => [...prev, ...result.assets].slice(0, 5));
+    } catch (error) {
+      console.log("PICK EDIT IMAGE ERROR:", error);
+    }
+  };
+
+  const handleRemoveEditNewImage = (index: number) => {
+    setEditNewImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleUpdateComment = async () => {
+    if (!editingComment || updatingComment) return;
+
+    const content = editCommentText.trim();
+
+    if (
+      !content &&
+      editExistingImages.length === 0 &&
+      editNewImages.length === 0
+    ) {
+      return;
+    }
+
+    try {
+      setUpdatingComment(true);
+
+      const res = await taskServices.updateTaskComment({
+        commentId: editingComment.id,
+        content,
+        existingImages: editExistingImages,
+        images: editNewImages,
+      });
+
+      console.log(
+        "newImages:",
+        editNewImages.map((image, index) => ({
+          index,
+          uri: image.uri,
+          fileName: image.fileName,
+          mimeType: image.mimeType,
+          width: image.width,
+          height: image.height,
+        })),
+      );
+
+      console.log("Check value update comment res: ", res.data);
+
+      if (!res.result) {
+        console.log("UPDATE COMMENT FAILED:", res.message);
+        return;
+      }
+
+      setEditCommentVisible(false);
+      setEditingComment(null);
+      setEditCommentText("");
+      setEditExistingImages([]);
+      setEditNewImages([]);
+
+      await fetchComments();
+    } catch (error: any) {
+      console.log("UPDATE COMMENT ERROR:", error?.response?.data ?? error);
+    } finally {
+      setUpdatingComment(false);
+    }
+  };
 
   const openImagePreview = (images: string[], index: number) => {
     setPreviewImages(images);
@@ -648,6 +831,8 @@ export default function TaskDetailScreen() {
                   colors={colors}
                   isDark={isDark}
                   onImagePress={openImagePreview}
+                  onEdit={handleOpenEditComment}
+                  onDelete={handleDeleteComment}
                 />
               ))}
             </View>
@@ -813,6 +998,7 @@ export default function TaskDetailScreen() {
         </View>
       )}
 
+      {/* module tạo comment */}
       <Modal
         visible={commentModalVisible}
         transparent
@@ -1030,6 +1216,7 @@ export default function TaskDetailScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
+      {/* module review ảnh comment */}
       <Modal
         visible={imagePreviewVisible}
         transparent
@@ -1104,6 +1291,283 @@ export default function TaskDetailScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* module editc comment */}
+      <Modal
+        visible={editCommentVisible}
+        transparent
+        animationType="slide"
+        statusBarTranslucent
+        onRequestClose={() => {
+          if (updatingComment) return;
+
+          setEditCommentVisible(false);
+          setEditingComment(null);
+          setEditCommentText("");
+          setEditExistingImages([]);
+          setEditNewImages([]);
+        }}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalContainer}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            style={styles.modalBackdrop}
+            onPress={() => {
+              if (updatingComment) return;
+
+              setEditCommentVisible(false);
+              setEditingComment(null);
+              setEditCommentText("");
+              setEditExistingImages([]);
+              setEditNewImages([]);
+            }}
+          />
+
+          <View
+            style={[
+              styles.commentModal,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <Text
+                style={[
+                  styles.modalTitle,
+                  {
+                    color: colors.text,
+                  },
+                ]}
+              >
+                Sửa bình luận
+              </Text>
+
+              <TouchableOpacity
+                activeOpacity={0.7}
+                disabled={updatingComment}
+                style={styles.modalCloseButton}
+                onPress={() => {
+                  if (updatingComment) return;
+
+                  setEditCommentVisible(false);
+                  setEditingComment(null);
+                  setEditCommentText("");
+                  setEditExistingImages([]);
+                  setEditNewImages([]);
+                }}
+              >
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View
+              style={[
+                styles.modalDivider,
+                {
+                  backgroundColor: colors.border,
+                },
+              ]}
+            />
+
+            <View style={styles.commentInputRow}>
+              <View
+                style={[
+                  styles.commentAvatar,
+                  {
+                    backgroundColor: isDark
+                      ? "rgba(25,118,233,0.18)"
+                      : "#E8F2FF",
+                  },
+                ]}
+              >
+                {avatarUrl ? (
+                  <Image
+                    source={{ uri: avatarUrl }}
+                    style={styles.avatarImage}
+                  />
+                ) : (
+                  <Ionicons name="person" size={22} color={PRIMARY} />
+                )}
+              </View>
+
+              <TextInput
+                value={editCommentText}
+                onChangeText={setEditCommentText}
+                placeholder={t("taskDetail.commentPlaceholder")}
+                placeholderTextColor={colors.textSecondary}
+                multiline
+                editable={!updatingComment}
+                textAlignVertical="top"
+                style={[
+                  styles.commentInput,
+                  {
+                    color: colors.text,
+                    backgroundColor: colors.background,
+                    borderColor: colors.border,
+                  },
+                ]}
+              />
+            </View>
+
+            <View style={styles.commentImageActions}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={handlePickEditImages}
+                disabled={updatingComment}
+                style={[
+                  styles.pickImageButton,
+                  {
+                    borderColor: colors.border,
+                    backgroundColor: colors.background,
+                  },
+                ]}
+              >
+                <Ionicons name="images-outline" size={19} color={PRIMARY} />
+
+                <Text style={styles.pickImageText}>Chọn ảnh từ thư viện</Text>
+              </TouchableOpacity>
+
+              {(editExistingImages.length > 0 || editNewImages.length > 0) && (
+                <Text
+                  style={[
+                    styles.imageCountText,
+                    {
+                      color: colors.textSecondary,
+                    },
+                  ]}
+                >
+                  {editExistingImages.length + editNewImages.length}/5
+                </Text>
+              )}
+            </View>
+
+            {(editExistingImages.length > 0 || editNewImages.length > 0) && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.selectedImages}
+              >
+                {editExistingImages.map((image, index) => {
+                  const imageUrl = getImageUrl(image);
+
+                  if (!imageUrl) return null;
+
+                  return (
+                    <View
+                      key={`existing-${image}-${index}`}
+                      style={styles.selectedImageWrapper}
+                    >
+                      <Image
+                        source={{ uri: imageUrl }}
+                        style={styles.selectedImage}
+                      />
+
+                      <TouchableOpacity
+                        activeOpacity={0.8}
+                        style={styles.removeSelectedImage}
+                        disabled={updatingComment}
+                        onPress={() => handleRemoveExistingImage(index)}
+                      >
+                        <Ionicons name="close" size={14} color="#FFFFFF" />
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+                {editNewImages.map((image, index) => (
+                  <View
+                    key={`new-${image.uri}-${index}`}
+                    style={styles.selectedImageWrapper}
+                  >
+                    <Image
+                      source={{ uri: image.uri }}
+                      style={styles.selectedImage}
+                    />
+
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      style={styles.removeSelectedImage}
+                      disabled={updatingComment}
+                      onPress={() => handleRemoveEditNewImage(index)}
+                    >
+                      <Ionicons name="close" size={14} color="#FFFFFF" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
+            )}
+
+            <View style={styles.commentActions}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                disabled={updatingComment}
+                style={[
+                  styles.cancelCommentButton,
+                  {
+                    borderColor: colors.border,
+                  },
+                  updatingComment && {
+                    opacity: 0.5,
+                  },
+                ]}
+                onPress={() => {
+                  if (updatingComment) return;
+
+                  setEditCommentVisible(false);
+                  setEditingComment(null);
+                  setEditCommentText("");
+                  setEditExistingImages([]);
+                  setEditNewImages([]);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.cancelCommentText,
+                    {
+                      color: colors.text,
+                    },
+                  ]}
+                >
+                  {t("common.cancel")}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={handleUpdateComment}
+                disabled={
+                  (!editCommentText.trim() &&
+                    editExistingImages.length === 0 &&
+                    editNewImages.length === 0) ||
+                  updatingComment
+                }
+                style={[
+                  styles.sendCommentButton,
+                  ((!editCommentText.trim() &&
+                    editExistingImages.length === 0 &&
+                    editNewImages.length === 0) ||
+                    updatingComment) &&
+                    styles.sendCommentButtonDisabled,
+                ]}
+              >
+                {updatingComment ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+
+                    <Text style={styles.sendCommentText}>Lưu thay đổi</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -1113,11 +1577,15 @@ function CommentItem({
   colors,
   isDark,
   onImagePress,
+  onEdit,
+  onDelete,
 }: {
   comment: TaskComment;
   colors: any;
   isDark: boolean;
   onImagePress: (images: string[], index: number) => void;
+  onEdit: (comment: TaskComment) => void;
+  onDelete: (comment: TaskComment) => void;
 }) {
   const avatarUrl = comment.sender_avatar
     ? (getImageUrl(comment.sender_avatar) ?? undefined)
@@ -1177,16 +1645,34 @@ function CommentItem({
             {comment.sender_name || "--"}
           </Text>
 
-          <Text
-            style={[
-              styles.commentTime,
-              {
-                color: colors.textSecondary,
-              },
-            ]}
-          >
-            {formatDateTime(comment.created_at)}
-          </Text>
+          <View style={styles.commentHeaderRight}>
+            <Text
+              style={[
+                styles.commentTime,
+                {
+                  color: colors.textSecondary,
+                },
+              ]}
+            >
+              {formatDateTime(comment.created_at)}
+            </Text>
+
+            <TouchableOpacity
+              activeOpacity={0.7}
+              style={styles.commentActionButton}
+              onPress={() => onEdit(comment)}
+            >
+              <Ionicons name="create-outline" size={17} color={PRIMARY} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.7}
+              style={styles.commentActionButton}
+              onPress={() => onDelete(comment)}
+            >
+              <Ionicons name="trash-outline" size={17} color="#DC3545" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {!!comment.content && (
@@ -1921,5 +2407,18 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 12,
     fontWeight: "600",
+  },
+
+  commentHeaderRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+
+  commentActionButton: {
+    width: 28,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

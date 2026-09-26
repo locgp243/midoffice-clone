@@ -94,3 +94,26 @@ export interface TaskCommentResponse {
   data: TaskComment[];
   options: object;
 }
+
+export interface UpdateTaskCommentRequest {
+  commentId: number;
+  content: string;
+  existingImages: string[];
+  images: ImagePickerAsset[];
+}
+
+export interface UpdateTaskCommentResponse {
+  result: boolean;
+  message: string;
+  status: number;
+  data: object;
+  options: object;
+}
+
+export interface DeleteTaskCommentResponse {
+  result: boolean;
+  message: string;
+  status: number;
+  data: object;
+  options: object;
+}
