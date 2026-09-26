@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "439855194731",
+    "project_id": "midoffice-clone",
+    "storage_bucket": "midoffice-clone.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:439855194731:android:eed7c7dc3b17c7e92f472e",
+        "android_client_info": {
+          "package_name": "com.midvietnam.midoffice"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA-8OZ2hEgyk3CkA--GAGZyXABKNBYw31E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
