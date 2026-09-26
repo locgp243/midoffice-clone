@@ -31,9 +31,7 @@ yarn-error.*
 *.pem
 
 # local env files
-.env
-.env.local
-.env*.local
+
 
 # typescript
 *.tsbuildinfo
@@ -43,4 +41,3 @@ yarn-error.*
 /android
 
 
-google-services.json
